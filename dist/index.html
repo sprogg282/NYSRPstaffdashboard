@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NYSRP | Staff Dashboard</title>
+    <meta name="description" content="New York State Roleplay - ER:LC Staff Dashboard for managing warnings, bans, kicks, and notes.">
+    <link rel="icon" type="image/png" href="/assets/logo-DDIoqayr.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+  <script type="module" crossorigin src="/assets/index-AnXnwC_d.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-pJRmYJGT.css">
+</head>
+<body>
+
+    <!-- ============ LOGIN PAGE ============ -->
+    <div id="loginPage" class="login-page">
+        <div class="login-bg-effects">
+            <div class="orb orb-1"></div>
+            <div class="orb orb-2"></div>
+            <div class="orb orb-3"></div>
+        </div>
+        <div class="login-container">
+            <div class="login-card">
+                <div class="login-logo">
+                    <img src="/assets/logo-DDIoqayr.png" alt="NYSRP Logo" id="loginLogo">
+                </div>
+                <h1 class="login-title">Staff Dashboard</h1>
+                <p class="login-subtitle">New York State Roleplay</p>
+                <form id="loginForm" class="login-form">
+                    <div class="input-group">
+                        <i class="fas fa-envelope"></i>
+                        <input type="email" id="loginEmail" placeholder="Staff Email Address" required autocomplete="email">
+                    </div>
+                    <div class="input-group">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="loginPassword" placeholder="Staff Password" required>
+                    </div>
+                    <button type="submit" class="btn-login" id="loginBtn">
+                        <span>Sign In</span>
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                </form>
+                <p class="login-footer">Authorized Staff Only<br><span style="text-transform: none; opacity: 0.7; font-size: 0.75rem; margin-top: 4px; display: inline-block;">Only staff can access the dashboard. If you are staff and cant or don't have access, please create a ticket.</span></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ DASHBOARD ============ -->
+    <div id="dashboardPage" class="dashboard-page hidden">
+
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <img src="/assets/logo-DDIoqayr.png" alt="NYSRP" class="sidebar-logo">
+                <span class="sidebar-brand">NYSRP</span>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-page="overview" id="navOverview">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>Overview</span>
+                </a>
+                <a href="#" class="nav-item" data-page="logs" id="navLogs">
+                    <i class="fas fa-clipboard-list"></i>
+                    <span>Action Logs</span>
+                </a>
+                <a href="#" class="nav-item" data-page="search" id="navSearch">
+                    <i class="fas fa-search"></i>
+                    <span>Search Logs</span>
+                </a>
+                <a href="#" class="nav-item" data-page="toolbox" id="navToolbox">
+                    <i class="fas fa-toolbox"></i>
+                    <span>Staff Toolbox</span>
+                </a>
+                <a href="/loa" class="nav-item" data-page="loa" id="navLoa">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>LOA Requests</span>
+                </a>
+                <a href="/shifts" class="nav-item" data-page="shifts" id="navShifts">
+                    <i class="fas fa-clock"></i>
+                    <span>Manage Shifts</span>
+                </a>
+                <a href="#" class="nav-item hidden" data-page="training" id="navTraining">
+                    <i class="fas fa-graduation-cap"></i>
+                    <span>Staff Training</span>
+                </a>
+                <a href="#" class="nav-item owner-only hidden" data-page="staff" id="navStaff">
+                    <i class="fas fa-users-cog"></i>
+                    <span>Manage Staff</span>
+                </a>
+                <a href="#" class="nav-item owner-only hidden" data-page="reasons" id="navReasons">
+                    <i class="fas fa-list-alt"></i>
+                    <span>Manage Reasons</span>
+                </a>
+
+                <div class="nav-divider"></div>
+                <p class="nav-section-title">ER:LC Server</p>
+                <a href="/remote-control" class="nav-item management-only hidden" data-page="remote-control" id="navRemoteControl">
+                    <i class="fas fa-terminal"></i>
+                    <span>Remote Control</span>
+                </a>
+                <a href="/erlc-players" class="nav-item" data-page="erlc-players" id="navErlcPlayers">
+                    <i class="fas fa-gamepad"></i>
+                    <span>In-Game Players</span>
+                </a>
+                <a href="/erlc-logs" class="nav-item" data-page="erlc-logs" id="navErlcLogs">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>ER:LC Activity</span>
+                </a>
+                
+                <div class="nav-divider"></div>
+                <p class="nav-section-title">Quick Actions</p>
+                <a href="#" class="nav-item action-item" data-action="warn" id="navWarn">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>Warn</span>
+                </a>
+                <a href="#" class="nav-item action-item" data-action="kick" id="navKick">
+                    <i class="fas fa-user-slash"></i>
+                    <span>Kick</span>
+                </a>
+                <a href="#" class="nav-item action-item" data-action="ban" id="navBan">
+                    <i class="fas fa-gavel"></i>
+                    <span>Ban</span>
+                </a>
+                <a href="#" class="nav-item action-item" data-action="bolo" id="navBolo">
+                    <i class="fas fa-binoculars"></i>
+                    <span>Bolo</span>
+                </a>
+                <a href="#" class="nav-item action-item" data-action="note" id="navNote">
+                    <i class="fas fa-sticky-note"></i>
+                    <span>Notes</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="staff-info">
+                    <div class="staff-avatar" id="staffAvatarSidebar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="staff-details">
+                        <span class="staff-name" id="staffNameSidebar">Staff</span>
+                        <span class="staff-role" id="staffRoleSidebar">Moderator</span>
+                    </div>
+                </div>
+                <button class="btn-logout" id="logoutBtn" title="Logout">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Top Bar -->
+            <header class="topbar">
+                <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="Open navigation menu" aria-expanded="false" aria-controls="sidebar">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="topbar-info">
+                    <h2 id="pageTitle">Overview</h2>
+                    <span class="topbar-date" id="currentDate"></span>
+                </div>
+                <div class="topbar-actions">
+                    <button class="btn-new-log" id="newLogBtn" type="button" aria-label="Create new log">
+                        <i class="fas fa-plus"></i>
+                        <span>New Log</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Pages -->
+            <!-- Overview Page -->
+            <section id="overviewPage" class="page active">
+                <div class="stats-grid">
+                    <div class="stat-card" id="statWarns">
+                        <div class="stat-icon warn-icon">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-number" id="warnCount">0</span>
+                            <span class="stat-label">Warnings</span>
+                        </div>
+                        <div class="stat-trend up">
+                            <i class="fas fa-arrow-up"></i>
+                        </div>
+                    </div>
+                    <div class="stat-card" id="statBans">
+                        <div class="stat-icon ban-icon">
+                            <i class="fas fa-gavel"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-number" id="banCount">0</span>
+                            <span class="stat-label">Bans</span>
+                        </div>
+                        <div class="stat-trend up">
+                            <i class="fas fa-arrow-up"></i>
+                        </div>
+                    </div>
+                    <div class="stat-card" id="statKicks">
+                        <div class="stat-icon kick-icon">
+                            <i class="fas fa-user-slash"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-number" id="kickCount">0</span>
+                            <span class="stat-label">Kicks</span>
+                        </div>
+                        <div class="stat-trend neutral">
+                            <i class="fas fa-minus"></i>
+                        </div>
+                    </div>
+                    <div class="stat-card" id="statBolos">
+                        <div class="stat-icon bolo-icon">
+                            <i class="fas fa-binoculars"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-number" id="boloCount">0</span>
+                            <span class="stat-label">Bolos</span>
+                        </div>
+                        <div class="stat-trend neutral">
+                            <i class="fas fa-minus"></i>
+                        </div>
+                    </div>
+                    <div class="stat-card" id="statNotes">
+                        <div class="stat-icon note-icon">
+                            <i class="fas fa-sticky-note"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-number" id="noteCount">0</span>
+                            <span class="stat-label">Notes</span>
+                        </div>
+                        <div class="stat-trend neutral">
+                            <i class="fas fa-minus"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions Grid -->
+                <div class="section-header">
+                    <h3>Quick Actions</h3>
+                </div>
+                <div class="quick-actions-grid">
+                    <button class="quick-action-card" data-action="shift" id="qaShift">
+                        <div class="qa-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--note-color);"><i class="fas fa-clock"></i></div>
+                        <span>Manage Shift</span>
+                    </button>
+                    <button class="quick-action-card" data-action="warn" id="qaWarn">
+                        <div class="qa-icon warn-bg"><i class="fas fa-exclamation-triangle"></i></div>
+                        <span>Issue Warning</span>
+                    </button>
+                    <button class="quick-action-card" data-action="kick" id="qaKick">
+                        <div class="qa-icon kick-bg"><i class="fas fa-user-slash"></i></div>
+                        <span>Kick Player</span>
+                    </button>
+                    <button class="quick-action-card" data-action="ban" id="qaBan">
+                        <div class="qa-icon ban-bg"><i class="fas fa-gavel"></i></div>
+                        <span>Ban Player</span>
+                    </button>
+                    <button class="quick-action-card" data-action="bolo" id="qaBolo">
+                        <div class="qa-icon bolo-bg"><i class="fas fa-binoculars"></i></div>
+                        <span>Bolo</span>
+                    </button>
+                    <button class="quick-action-card" data-action="note" id="qaNote">
+                        <div class="qa-icon note-bg"><i class="fas fa-sticky-note"></i></div>
+                        <span>Add Note</span>
+                    </button>
+                </div>
+
+                <!-- Recent Logs -->
+                <div class="section-header">
+                    <h3>Recent Activity</h3>
+                    <a href="#" class="view-all" id="viewAllLogs">View All <i class="fas fa-arrow-right"></i></a>
+                </div>
+                <div class="logs-table-container">
+                    <table class="logs-table" id="recentLogsTable">
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Player</th>
+                                <th>Reason</th>
+                                <th>Staff</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentLogsBody">
+                            <tr class="empty-row">
+                                <td colspan="5">
+                                    <div class="empty-state">
+                                        <i class="fas fa-inbox"></i>
+                                        <p>No logs yet. Submit your first action!</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Logs Page -->
+            <section id="logsPage" class="page">
+                <div class="page-header-bar">
+                    <div class="filter-group">
+                        <button class="filter-btn active" data-filter="all" id="filterAll">All</button>
+                        <button class="filter-btn" data-filter="warn" id="filterWarn">Warns</button>
+                        <button class="filter-btn" data-filter="ban" id="filterBan">Bans</button>
+                        <button class="filter-btn" data-filter="kick" id="filterKick">Kicks</button>
+                        <button class="filter-btn" data-filter="bolo" id="filterBolo">Bolos</button>
+                        <button class="filter-btn" data-filter="note" id="filterNote">Notes</button>
+                    </div>
+                </div>
+                <div class="logs-table-container full-height">
+                    <table class="logs-table" id="allLogsTable">
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Player</th>
+                                <th>Roblox ID</th>
+                                <th>Reason</th>
+                                <th>Duration</th>
+                                <th>Staff</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="allLogsBody">
+                            <tr class="empty-row">
+                                <td colspan="8">
+                                    <div class="empty-state">
+                                        <i class="fas fa-inbox"></i>
+                                        <p>No logs found.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Search Page -->
+            <section id="searchPage" class="page">
+                <div class="search-container">
+                    <div class="search-box-large">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="searchInput" placeholder="Search by username, Roblox ID, or reason...">
+                        <button class="search-clear" id="searchClear"><i class="fas fa-times"></i></button>
+                    </div>
+                </div>
+                <div class="logs-table-container full-height">
+                    <table class="logs-table" id="searchLogsTable">
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Player</th>
+                                <th>Roblox ID</th>
+                                <th>Reason</th>
+                                <th>Duration</th>
+                                <th>Staff</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="searchLogsBody">
+                            <tr class="empty-row">
+                                <td colspan="7">
+                                    <div class="empty-state">
+                                        <i class="fas fa-search"></i>
+                                        <p>Search for a player to view their logs.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Staff Toolbox Page -->
+            <section id="toolboxPage" class="page">
+                <div class="toolbox-header-card">
+                    <div class="toolbox-profile-inputs">
+                        <div class="toolbox-profile-group">
+                            <label for="tbStaffName">Staff Username</label>
+                            <input type="text" id="tbStaffName" placeholder="Your Username">
+                        </div>
+                        <div class="toolbox-profile-group">
+                            <label for="tbStaffRank">Staff Rank</label>
+                            <input type="text" id="tbStaffRank" placeholder="Your Rank (e.g. Moderator)">
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                        <div class="toolbox-profile-group" style="min-width: 260px; margin-bottom: 0;">
+                            <label for="presetSearch">Search Presets</label>
+                            <input type="text" id="presetSearch" placeholder="Search by title, category, or text">
+                        </div>
+                        <button class="btn-new-log" id="btnCreatePreset">
+                            <i class="fas fa-plus"></i>
+                            <span>Create Custom Preset</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="presets-container" id="presetsContainer">
+                    <!-- Preset Cards will be loaded dynamically here -->
+                </div>
+            </section>
+
+            <!-- Leave of Absence Page -->
+            <section id="loaPage" class="page">
+                <div class="toolbox-header-card">
+                    <div class="toolbox-profile-inputs">
+                        <h2 style="color: var(--text-primary); font-size: 1.5rem; margin-bottom: 8px;">Leave of Absence</h2>
+                        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 24px;">Submit and track staff LOA requests.</p>
+
+                        <form id="loaForm" style="display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end;">
+                            <div class="toolbox-profile-group" style="flex: 1; min-width: 180px;">
+                                <label for="loaStartDate">Start Date</label>
+                                <input type="date" id="loaStartDate" required>
+                            </div>
+                            <div class="toolbox-profile-group" style="flex: 1; min-width: 180px;">
+                                <label for="loaEndDate">End Date</label>
+                                <input type="date" id="loaEndDate" required>
+                            </div>
+                            <div class="toolbox-profile-group" style="flex: 2; min-width: 260px;">
+                                <label for="loaReason">Reason</label>
+                                <input type="text" id="loaReason" placeholder="Briefly explain the absence" required>
+                            </div>
+                            <button type="submit" class="btn-new-log" id="btnSubmitLoa" style="height: 45px; padding: 0 24px;">
+                                <i class="fas fa-paper-plane"></i>
+                                <span>Submit LOA</span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="logs-table-container">
+                    <table class="logs-table">
+                        <thead>
+                            <tr>
+                                <th>Staff</th>
+                                <th>Dates</th>
+                                <th>Reason</th>
+                                <th>Status</th>
+                                <th>Reviewed By</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="loaListBody">
+                            <tr><td colspan="6"><div class="autocomplete-loading"><i class="fas fa-spinner fa-spin"></i><span>Loading LOA requests...</span></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Manage Shifts Page -->
+            <section id="shiftsPage" class="page">
+                <!-- Active Shift Clock Controller -->
+                <div class="shift-clock-container">
+                    <div class="shift-clock-info">
+                        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                            <span class="shift-status-pill status-off" id="shiftStatusBadge">
+                                <span class="shift-status-dot"></span>
+                                <span id="shiftStatusText">Off Shift</span>
+                            </span>
+                            <span style="font-size: 0.85rem; color: var(--text-muted);" id="shiftStaffSummary">Not Clocked In</span>
+                        </div>
+                        <div class="shift-timer-display" id="shiftLiveTimer">00:00:00</div>
+                        <div class="shift-timer-sub" id="shiftTimerSub">Clock in to begin tracking your active patrol/moderation shift.</div>
+                    </div>
+
+                    <div class="shift-actions-group" id="shiftActionsGroup">
+                        <button type="button" class="btn-shift-start" id="btnStartShift">
+                            <i class="fas fa-play"></i>
+                            <span>Start Shift</span>
+                        </button>
+                        <button type="button" class="btn-shift-break hidden" id="btnStartBreak">
+                            <i class="fas fa-coffee"></i>
+                            <span>Start Break</span>
+                        </button>
+                        <button type="button" class="btn-shift-start hidden" id="btnEndBreak" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8);">
+                            <i class="fas fa-play"></i>
+                            <span>Return From Break</span>
+                        </button>
+                        <button type="button" class="btn-shift-end hidden" id="btnEndShift">
+                            <i class="fas fa-stop"></i>
+                            <span>End Shift</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Shift Statistics Grid -->
+                <div class="stats-grid" style="margin-bottom: 24px;">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--note-color);">
+                            <i class="fas fa-user-shield"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-number" id="statActiveShifts">0</span>
+                            <span class="stat-label">On Duty Now</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: rgba(245, 158, 11, 0.15); color: var(--warn-color);">
+                            <i class="fas fa-coffee"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-number" id="statOnBreak">0</span>
+                            <span class="stat-label">On Break</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: rgba(59, 130, 246, 0.15); color: var(--bolo-color);">
+                            <i class="fas fa-history"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-number" id="statMyShifts">0</span>
+                            <span class="stat-label">My Total Shifts</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: rgba(253, 135, 1, 0.15); color: var(--accent);">
+                            <i class="fas fa-stopwatch"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-number" id="statMyHours">0h 0m</span>
+                            <span class="stat-label">My Active Time</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Staff On Duty Section -->
+                <div class="section-header" style="margin-top: 10px;">
+                    <h3>Staff Currently On Duty</h3>
+                </div>
+                <div class="logs-table-container" style="margin-bottom: 24px;">
+                    <table class="logs-table">
+                        <thead>
+                            <tr>
+                                <th>Staff Member</th>
+                                <th>Rank</th>
+                                <th>Status</th>
+                                <th>Started At</th>
+                                <th>Current Duration</th>
+                                <th>Breaks Taken</th>
+                            </tr>
+                        </thead>
+                        <tbody id="activeStaffBody">
+                            <tr><td colspan="6"><div class="empty-state"><i class="fas fa-user-clock"></i><p>No staff members currently on duty.</p></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Shift History Section -->
+                <div class="page-header-bar" style="margin-top: 20px;">
+                    <div class="filter-group">
+                        <button class="filter-btn active" data-shift-filter="all" id="filterShiftAll">All History</button>
+                        <button class="filter-btn" data-shift-filter="mine" id="filterShiftMine">My Shifts</button>
+                        <button class="filter-btn" data-shift-filter="active" id="filterShiftActive">Active</button>
+                        <button class="filter-btn" data-shift-filter="completed" id="filterShiftCompleted">Completed</button>
+                    </div>
+                    <div style="flex: 1; max-width: 320px; margin-left: auto;">
+                        <input type="text" id="shiftSearchInput" placeholder="Search shifts by staff name..." style="width: 100%; padding: 10px 14px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-md); color: var(--text-primary); font-size: 0.85rem;">
+                    </div>
+                </div>
+
+                <div class="logs-table-container full-height">
+                    <table class="logs-table">
+                        <thead>
+                            <tr>
+                                <th>Staff Member</th>
+                                <th>Rank</th>
+                                <th>Status</th>
+                                <th>Start Time</th>
+                                <th>End Time</th>
+                                <th>Active Working Time</th>
+                                <th>Break Time</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="shiftHistoryBody">
+                            <tr><td colspan="8"><div class="autocomplete-loading"><i class="fas fa-spinner fa-spin"></i><span>Loading shift records...</span></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Staff Training Tutorial Page -->
+            <section id="trainingPage" class="page">
+                <div class="toolbox-header-card">
+                    <div class="toolbox-profile-inputs">
+                        <h2 style="color: var(--text-primary); font-size: 1.5rem; margin-bottom: 8px;">Staff Training Tutorial</h2>
+                        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 24px;">Complete the required staff onboarding steps.</p>
+                        <div class="stats-grid" style="margin-bottom: 20px;">
+                            <div class="stat-card">
+                                <div class="stat-icon" style="background: rgba(59, 130, 246, 0.15); color: var(--bolo-color);">
+                                    <i class="fas fa-list-check"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <span class="stat-number" id="trainingStepCounter">1/6</span>
+                                    <span class="stat-label" id="trainingStatusLabel">Not Started</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="logs-table-container" style="padding: 24px;">
+                            <h3 id="trainingStepTitle" style="color: var(--text-primary); margin-bottom: 12px;">Loading...</h3>
+                            <p id="trainingStepBody" style="color: var(--text-secondary); line-height: 1.6; margin-bottom: 20px;">Loading tutorial step.</p>
+                            <div class="form-actions" style="justify-content: space-between;">
+                                <button type="button" class="btn-cancel" id="btnTrainingPrevious">
+                                    <i class="fas fa-arrow-left"></i>
+                                    <span>Previous</span>
+                                </button>
+                                <button type="button" class="btn-submit" id="btnTrainingNext">
+                                    <span>Start Tutorial</span>
+                                    <i class="fas fa-arrow-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Staff Management Page (Owner Only) -->
+            <section id="staffPage" class="page">
+                <div class="toolbox-header-card">
+                    <div class="toolbox-profile-inputs">
+                        <h2 style="color: var(--text-primary); font-size: 1.5rem; margin-bottom: 8px;">Staff Management</h2>
+                        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 24px;">Create and manage staff accounts and their permissions.</p>
+                        
+                        <form id="createStaffForm" style="display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end;">
+                            <div class="toolbox-profile-group" style="flex: 1; min-width: 200px;">
+                                <label for="newStaffEmail">Email Address</label>
+                                <input type="email" id="newStaffEmail" placeholder="staff@nysrp.com" required>
+                            </div>
+                            <div class="toolbox-profile-group" style="flex: 1; min-width: 200px;">
+                                <label for="newStaffPassword">Temporary Password</label>
+                                <input type="text" id="newStaffPassword" placeholder="Minimum 6 characters" required minlength="6">
+                            </div>
+                            <div class="toolbox-profile-group" style="flex: 1; min-width: 150px;">
+                                <label for="newStaffRank">Rank</label>
+                                <select id="newStaffRank" required style="width: 100%; padding: 12px 16px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-md); color: var(--text-primary); font-size: 0.95rem;">
+                                    <option value="Junior Moderator">Junior Moderator</option>
+                                    <option value="Moderator">Moderator</option>
+                                    <option value="Junior Administrator">Junior Administrator</option>
+                                    <option value="Administrator">Administrator</option>
+                                    <option value="Staff Supervisor">Staff Supervisor</option>
+                                    <option value="Internal Affairs">Internal Affairs</option>
+                                    <option value="Management">Management</option>
+                                    <option value="Director">Director</option>
+                                    <option value="Co Owner">Co Owner</option>
+                                    <option value="Owner">Owner</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn-new-log" id="btnCreateStaff" style="height: 45px; padding: 0 24px;">
+                                <i class="fas fa-user-plus"></i>
+                                <span>Create Account</span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="logs-table-container">
+                    <table class="logs-table">
+                        <thead>
+                            <tr>
+                                <th>Staff</th>
+                                <th>Email</th>
+                                <th>Rank</th>
+                                <th>Joined</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="staffListBody">
+                            <tr><td colspan="5"><div class="autocomplete-loading"><i class="fas fa-spinner fa-spin"></i><span>Loading staff...</span></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Reason Management Page (Owner Only) -->
+            <section id="reasonsPage" class="page">
+                <div class="toolbox-header-card">
+                    <div class="toolbox-profile-inputs">
+                        <h2 style="color: var(--text-primary); font-size: 1.5rem; margin-bottom: 8px;">Reason Templates</h2>
+                        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 24px;">Manage the dropdown reason options for log submissions.</p>
+                        <div class="toolbox-profile-group" style="max-width: 360px; margin-bottom: 16px;">
+                            <label for="reasonSearch">Search Templates</label>
+                            <input type="text" id="reasonSearch" placeholder="Search reason text">
+                        </div>
+                        
+                        <form id="createReasonForm" style="display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end;">
+                            <div class="toolbox-profile-group" style="flex: 1; min-width: 250px;">
+                                <label for="newReasonText">Reason Text</label>
+                                <input type="text" id="newReasonText" placeholder="e.g. Fail Roleplay (FRP)" required>
+                            </div>
+                            <div class="toolbox-profile-group" style="width: 100px;">
+                                <label for="newReasonOrder">Order</label>
+                                <input type="number" id="newReasonOrder" value="0" required>
+                            </div>
+                            <button type="submit" class="btn-new-log" id="btnCreateReason" style="height: 45px; padding: 0 24px;">
+                                <i class="fas fa-plus"></i>
+                                <span>Add Reason</span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="logs-table-container">
+                    <table class="logs-table">
+                        <thead>
+                            <tr>
+                                <th>Order</th>
+                                <th>Reason Text</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reasonsListBody">
+                            <tr><td colspan="3"><div class="autocomplete-loading"><i class="fas fa-spinner fa-spin"></i><span>Loading templates...</span></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- ER:LC Remote Control Page (Management / Leadership) -->
+            <section id="remoteControlPage" class="page">
+                <!-- Server Status Header Banner -->
+                <div class="erlc-status-card" id="rcServerCard">
+                    <div class="erlc-status-header">
+                        <div class="erlc-server-title">
+                            <div class="erlc-status-dot online" id="rcStatusDot"></div>
+                            <div>
+                                <h2 id="rcServerName" style="color: var(--text-primary); font-size: 1.35rem; margin: 0;">NYSRP ER:LC Server</h2>
+                                <span style="font-size: 0.85rem; color: var(--text-muted);" id="rcStatusSub">Connecting to server API...</span>
+                            </div>
+                        </div>
+                        <div class="erlc-status-meta">
+                            <div class="erlc-meta-chip">
+                                <i class="fas fa-users" style="color: var(--accent);"></i>
+                                <span>Players: <strong id="rcPlayersCount">0/0</strong></span>
+                            </div>
+                            <div class="erlc-meta-chip">
+                                <i class="fas fa-key" style="color: var(--bolo-color);"></i>
+                                <span>Join Key: <strong id="rcJoinKey">—</strong></span>
+                            </div>
+                            <button type="button" class="btn-sm-icon" id="btnRefreshServer" title="Refresh Server Status">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Staff Duty Status Alert -->
+                    <div class="rc-duty-banner" id="rcDutyBanner">
+                        <i class="fas fa-info-circle"></i>
+                        <span id="rcDutyText">Checking shift status...</span>
+                    </div>
+                </div>
+
+                <!-- Terminal Command Runner & Quick Actions Grid -->
+                <div class="rc-grid">
+                    <!-- Left: Interactive Terminal & Custom Command Runner -->
+                    <div class="rc-terminal-card">
+                        <div class="rc-card-header">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <i class="fas fa-terminal" style="color: var(--accent);"></i>
+                                <h3 style="margin: 0; font-size: 1.1rem; color: var(--text-primary);">Command Console</h3>
+                            </div>
+                            <span class="type-badge badge-bolo" style="font-size: 0.75rem;">Remote Execution</span>
+                        </div>
+
+                        <form id="rcCommandForm" class="rc-command-form">
+                            <div class="rc-input-wrap">
+                                <span class="rc-prompt-symbol">&gt;</span>
+                                <input type="text" id="rcCommandInput" placeholder="e.g. :m Server restart in 5 minutes or :heal all" autocomplete="off" required>
+                                <button type="submit" class="btn-rc-execute" id="btnExecuteCommand">
+                                    <i class="fas fa-paper-plane"></i>
+                                    <span>Run</span>
+                                </button>
+                            </div>
+                        </form>
+
+                        <div class="rc-terminal-output" id="rcTerminalOutput">
+                            <div class="rc-log-line system">[System] Remote Control initialized. Authorized leadership commands will be dispatched directly to the ER:LC server.</div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Quick Commands Preset Buttons -->
+                    <div class="rc-presets-card">
+                        <div class="rc-card-header">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <i class="fas fa-bolt" style="color: var(--warn-color);"></i>
+                                <h3 style="margin: 0; font-size: 1.1rem; color: var(--text-primary);">Quick Actions</h3>
+                            </div>
+                        </div>
+
+                        <div class="rc-quick-actions-grid">
+                            <button type="button" class="rc-quick-btn" data-rc-cmd=":heal all">
+                                <i class="fas fa-heartbeat" style="color: var(--note-color);"></i>
+                                <div>
+                                    <strong>Heal All</strong>
+                                    <span>Restore health for all players</span>
+                                </div>
+                            </button>
+                            <button type="button" class="rc-quick-btn" data-rc-prompt=":m " data-rc-placeholder="Enter global announcement message...">
+                                <i class="fas fa-bullhorn" style="color: var(--accent);"></i>
+                                <div>
+                                    <strong>Announcement (:m)</strong>
+                                    <span>Broadcast message to server</span>
+                                </div>
+                            </button>
+                            <button type="button" class="rc-quick-btn" data-rc-prompt=":h " data-rc-placeholder="Enter hint message...">
+                                <i class="fas fa-comment-alt" style="color: var(--bolo-color);"></i>
+                                <div>
+                                    <strong>Server Hint (:h)</strong>
+                                    <span>Send upper hint bar message</span>
+                                </div>
+                            </button>
+                            <button type="button" class="rc-quick-btn" data-rc-prompt=":kick " data-rc-placeholder="Username reason...">
+                                <i class="fas fa-user-slash" style="color: var(--kick-color);"></i>
+                                <div>
+                                    <strong>Quick Kick (:kick)</strong>
+                                    <span>Kick player from server</span>
+                                </div>
+                            </button>
+                            <button type="button" class="rc-quick-btn" data-rc-prompt=":ban " data-rc-placeholder="Username reason...">
+                                <i class="fas fa-gavel" style="color: var(--ban-color);"></i>
+                                <div>
+                                    <strong>Quick Ban (:ban)</strong>
+                                    <span>Ban player from server</span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Players in Server with Instant Controls -->
+                <div class="section-header" style="margin-top: 24px;">
+                    <h3>In-Game Players Quick Controls</h3>
+                    <div style="max-width: 280px; width: 100%;">
+                        <input type="text" id="rcPlayerSearch" placeholder="Filter online players..." style="width: 100%; padding: 8px 12px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-md); color: var(--text-primary); font-size: 0.85rem;">
+                    </div>
+                </div>
+
+                <div class="logs-table-container" style="margin-bottom: 24px;">
+                    <table class="logs-table">
+                        <thead>
+                            <tr>
+                                <th>Player</th>
+                                <th>Roblox ID</th>
+                                <th>In-Game Permission</th>
+                                <th>Team / Job</th>
+                                <th>Remote Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rcPlayersBody">
+                            <tr><td colspan="5"><div class="autocomplete-loading"><i class="fas fa-spinner fa-spin"></i><span>Loading server players...</span></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Remote Command History Table -->
+                <div class="section-header" style="margin-top: 24px;">
+                    <h3>Recent Remote Commands History</h3>
+                </div>
+
+                <div class="logs-table-container">
+                    <table class="logs-table">
+                        <thead>
+                            <tr>
+                                <th>Staff Member</th>
+                                <th>Rank</th>
+                                <th>Command</th>
+                                <th>Duty Status</th>
+                                <th>Outcome</th>
+                                <th>Timestamp</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rcCommandsHistoryBody">
+                            <tr><td colspan="6"><div class="autocomplete-loading"><i class="fas fa-spinner fa-spin"></i><span>Loading command logs...</span></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- ER:LC In-Game Players Page (All Staff) -->
+            <section id="erlcPlayersPage" class="page">
+                <div class="page-header-bar">
+                    <div>
+                        <h2 style="color: var(--text-primary); font-size: 1.5rem; margin: 0 0 4px 0;">Live In-Game Players</h2>
+                        <p style="color: var(--text-secondary); font-size: 0.9rem; margin: 0;">Real-time view of all players currently connected to the ER:LC server.</p>
+                    </div>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <input type="text" id="erlcPlayersSearch" placeholder="Search by username or ID..." style="padding: 10px 14px; min-width: 250px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-md); color: var(--text-primary); font-size: 0.88rem;">
+                        <button type="button" class="btn-new-log" id="btnRefreshErlcPlayers" style="height: 42px;">
+                            <i class="fas fa-sync-alt"></i>
+                            <span>Refresh</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="logs-table-container full-height" style="margin-top: 16px;">
+                    <table class="logs-table">
+                        <thead>
+                            <tr>
+                                <th>Player</th>
+                                <th>Roblox User ID</th>
+                                <th>In-Game Rank</th>
+                                <th>Team</th>
+                                <th>Moderation Shortcuts</th>
+                            </tr>
+                        </thead>
+                        <tbody id="erlcPlayersListBody">
+                            <tr><td colspan="5"><div class="autocomplete-loading"><i class="fas fa-spinner fa-spin"></i><span>Fetching live players...</span></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- ER:LC Activity & Logs Page -->
+            <section id="erlcLogsPage" class="page">
+                <div class="page-header-bar">
+                    <div class="filter-group">
+                        <button class="filter-btn active" data-erlc-tab="kills" id="tabErlcKills">Kill Logs</button>
+                        <button class="filter-btn" data-erlc-tab="commands" id="tabErlcCommands">In-Game Commands</button>
+                        <button class="filter-btn" data-erlc-tab="modcalls" id="tabErlcModCalls">Mod Calls</button>
+                        <button class="filter-btn" data-erlc-tab="joins" id="tabErlcJoins">Player Sessions</button>
+                        <button class="filter-btn" data-erlc-tab="remote" id="tabErlcRemote">Remote Audit</button>
+                    </div>
+                    <div style="flex: 1; max-width: 300px; margin-left: auto;">
+                        <input type="text" id="erlcLogsSearch" placeholder="Filter records..." style="width: 100%; padding: 10px 14px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-md); color: var(--text-primary); font-size: 0.85rem;">
+                    </div>
+                </div>
+
+                <!-- Tab 1: Kills -->
+                <div id="erlcKillsTab" class="erlc-tab-content">
+                    <div class="logs-table-container full-height" style="margin-top: 16px;">
+                        <table class="logs-table">
+                            <thead>
+                                <tr>
+                                    <th>Killer</th>
+                                    <th>Killer Roblox ID</th>
+                                    <th>Victim</th>
+                                    <th>Victim Roblox ID</th>
+                                    <th>Timestamp</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="erlcKillsBody">
+                                <tr><td colspan="6"><div class="autocomplete-loading"><i class="fas fa-spinner fa-spin"></i><span>Loading kill logs...</span></div></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tab 2: In-Game Commands -->
+                <div id="erlcCommandsTab" class="erlc-tab-content hidden">
+                    <div class="logs-table-container full-height" style="margin-top: 16px;">
+                        <table class="logs-table">
+                            <thead>
+                                <tr>
+                                    <th>Player / Staff</th>
+                                    <th>Roblox ID</th>
+                                    <th>Command</th>
+                                    <th>Timestamp</th>
+                                </tr>
+                            </thead>
+                            <tbody id="erlcInGameCommandsBody">
+                                <tr><td colspan="4"><div class="autocomplete-loading"><i class="fas fa-spinner fa-spin"></i><span>Loading in-game command logs...</span></div></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tab 3: Mod Calls -->
+                <div id="erlcModCallsTab" class="erlc-tab-content hidden">
+                    <div class="logs-table-container full-height" style="margin-top: 16px;">
+                        <table class="logs-table">
+                            <thead>
+                                <tr>
+                                    <th>Status</th>
+                                    <th>Requester</th>
+                                    <th>Request Command</th>
+                                    <th>Staff Responder</th>
+                                    <th>Teleport Command</th>
+                                    <th>Requested Time</th>
+                                    <th>Responded Time</th>
+                                    <th>Response Duration</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="erlcModCallsBody">
+                                <tr><td colspan="9"><div class="autocomplete-loading"><i class="fas fa-spinner fa-spin"></i><span>Loading mod calls...</span></div></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tab 4: Joins & Leaves / Sessions -->
+                <div id="erlcJoinsTab" class="erlc-tab-content hidden">
+                    <div class="logs-table-container full-height" style="margin-top: 16px;">
+                        <table class="logs-table">
+                            <thead>
+                                <tr>
+                                    <th>Player</th>
+                                    <th>Roblox User ID</th>
+                                    <th>Event</th>
+                                    <th>Timestamp</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="erlcJoinsBody">
+                                <tr><td colspan="5"><div class="autocomplete-loading"><i class="fas fa-spinner fa-spin"></i><span>Loading join/leave logs...</span></div></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tab 5: Remote Audit -->
+                <div id="erlcRemoteTab" class="erlc-tab-content hidden">
+                    <div class="logs-table-container full-height" style="margin-top: 16px;">
+                        <table class="logs-table">
+                            <thead>
+                                <tr>
+                                    <th>Staff Member</th>
+                                    <th>Rank</th>
+                                    <th>Command</th>
+                                    <th>Duty Status</th>
+                                    <th>Outcome</th>
+                                    <th>Timestamp</th>
+                                </tr>
+                            </thead>
+                            <tbody id="erlcRemoteAuditBody">
+                                <tr><td colspan="6"><div class="autocomplete-loading"><i class="fas fa-spinner fa-spin"></i><span>Loading remote audit logs...</span></div></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- ============ LOG MODAL ============ -->
+    <div class="modal-overlay" id="logModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <div class="modal-icon" id="modalIcon"><i class="fas fa-exclamation-triangle"></i></div>
+                    <h2 id="modalTitle">Submit Warning</h2>
+                </div>
+                <button class="modal-close" id="modalClose"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="logForm" class="modal-form">
+                <input type="hidden" id="logType" value="warn">
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="logUsername">Player Username <span class="required">*</span></label>
+                        <div class="input-with-icon autocomplete-wrapper">
+                            <i class="fas fa-user"></i>
+                            <input type="text" id="logUsername" placeholder="Enter Roblox username" required autocomplete="off">
+                            <div class="autocomplete-dropdown hidden" id="robloxAutocomplete"></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="logRobloxId">Roblox ID</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-id-badge"></i>
+                            <input type="text" id="logRobloxId" placeholder="Automatically fetched" readonly style="background-color: var(--bg-hover); color: var(--text-muted); cursor: not-allowed;">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group" id="durationGroup">
+                    <label for="logDuration">Duration</label>
+                    <div class="input-with-icon">
+                        <i class="fas fa-clock"></i>
+                        <select id="logDuration">
+                            <option value="">Select duration...</option>
+                            <option value="1 Hour">1 Hour</option>
+                            <option value="6 Hours">6 Hours</option>
+                            <option value="12 Hours">12 Hours</option>
+                            <option value="1 Day">1 Day</option>
+                            <option value="3 Days">3 Days</option>
+                            <option value="7 Days">7 Days</option>
+                            <option value="14 Days">14 Days</option>
+                            <option value="30 Days">30 Days</option>
+                            <option value="Permanent">Permanent</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="logReasonTemplate">Reason Template</label>
+                    <div class="input-with-icon">
+                        <i class="fas fa-list-alt"></i>
+                        <select id="logReasonTemplate" style="width: 100%; padding: 14px 16px 14px 44px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-md); color: var(--text-secondary); font-size: 0.95rem; font-family: 'Inter', sans-serif; transition: all var(--transition-normal); outline: none; appearance: none; cursor: pointer;">
+                            <option value="" selected>Select a preset reason...</option>
+                            <!-- Dynamically populated via Firestore -->
+                        </select>
+                    </div>
+                    <button type="button" class="btn-cancel" id="clearReasonTemplates" style="margin-top: 8px; padding: 8px 12px;">Clear Reasons</button>
+                </div>
+
+                <div class="form-group">
+                    <label for="logReason">Detailed Reason <span class="required">*</span></label>
+                    <div class="input-with-icon textarea-icon">
+                        <i class="fas fa-pen"></i>
+                        <textarea id="logReason" placeholder="Provide a detailed reason..." rows="4" required></textarea>
+                    </div>
+                </div>
+
+                <div class="form-group" id="evidenceGroup">
+                    <label for="logEvidence">Evidence / Proof Link</label>
+                    <div class="input-with-icon">
+                        <i class="fas fa-link"></i>
+                        <input type="text" id="logEvidence" placeholder="Paste link to evidence (optional)">
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn-cancel" id="modalCancelBtn">Cancel</button>
+                    <button type="submit" class="btn-submit" id="modalSubmitBtn">
+                        <i class="fas fa-paper-plane"></i>
+                        <span>Submit Log</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============ NEW LOG TYPE SELECTOR ============ -->
+    <div class="modal-overlay" id="newLogSelector">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <div class="modal-icon select-icon"><i class="fas fa-plus-circle"></i></div>
+                    <h2>Select Log Type</h2>
+                </div>
+                <button class="modal-close" id="selectorClose"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="log-type-grid">
+                <button class="log-type-option" data-action="warn" id="selectWarn">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>Warning</span>
+                </button>
+                <button class="log-type-option" data-action="kick" id="selectKick">
+                    <i class="fas fa-user-slash"></i>
+                    <span>Kick</span>
+                </button>
+                <button class="log-type-option" data-action="ban" id="selectBan">
+                    <i class="fas fa-gavel"></i>
+                    <span>Ban</span>
+                </button>
+                <button class="log-type-option" data-action="bolo" id="selectBolo">
+                    <i class="fas fa-binoculars"></i>
+                    <span>Bolo</span>
+                </button>
+                <button class="log-type-option" data-action="note" id="selectNote">
+                    <i class="fas fa-sticky-note"></i>
+                    <span>Note</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ TOAST NOTIFICATION ============ -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- ============ DELETE CONFIRMATION ============ -->
+    <div class="modal-overlay" id="deleteModal" aria-hidden="true">
+        <section class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="interactionTitle" aria-describedby="interactionMessage">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <div class="modal-icon delete-icon" id="interactionIcon"><i class="fas fa-exclamation-triangle"></i></div>
+                    <h2 id="interactionTitle">Confirm action</h2>
+                </div>
+                <button class="modal-close" id="deleteClose" type="button" aria-label="Close dialog"><i class="fas fa-times"></i></button>
+            </div>
+            <p class="delete-message" id="interactionMessage" role="status" aria-live="polite"></p>
+            <div class="interaction-input-group hidden" id="interactionInputGroup">
+                <label class="interaction-input-label" id="interactionInputLabel" for="interactionInput"></label>
+                <textarea id="interactionInput" rows="3" autocomplete="off"></textarea>
+                <p class="interaction-feedback" id="interactionFeedback" aria-live="polite"></p>
+            </div>
+            <p class="interaction-error-code hidden" id="interactionErrorCode" role="status"></p>
+            <div class="form-actions">
+                <button type="button" class="btn-cancel" id="deleteCancelBtn">Cancel</button>
+                <button type="button" class="btn-delete" id="deleteConfirmBtn">
+                    <i class="fas fa-exclamation-triangle" id="interactionConfirmIcon"></i>
+                    <span id="interactionConfirmLabel">Confirm</span>
+                </button>
+            </div>
+        </section>
+    </div>
+
+    <!-- ============ PRESET MODAL ============ -->
+    <div class="modal-overlay" id="presetModal">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <div class="modal-icon select-icon"><i class="fas fa-edit"></i></div>
+                    <h2 id="presetModalTitle">Create Message Preset</h2>
+                </div>
+                <button class="modal-close" id="presetModalClose"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="presetForm" class="modal-form">
+                <input type="hidden" id="presetId">
+                <div class="form-group">
+                    <label for="presetTitle">Preset Title <span class="required">*</span></label>
+                    <div class="input-with-icon">
+                        <i class="fas fa-tag"></i>
+                        <input type="text" id="presetTitle" placeholder="e.g. Comms Check, FRP Warning" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="presetTemplate">Template Text <span class="required">*</span></label>
+                    <p class="form-hint" style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 2px;">
+                        Use <code>[user]</code> and <code>[rank]</code> as placeholders.
+                    </p>
+                    <div class="input-with-icon textarea-icon">
+                        <i class="fas fa-pen"></i>
+                        <textarea id="presetTemplate" placeholder="e.g. Hello I'm [user]..." rows="4" required></textarea>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="presetCategory">Category</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-folder"></i>
+                            <input type="text" id="presetCategory" placeholder="General" value="General">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="presetActive">Available</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-toggle-on"></i>
+                            <select id="presetActive">
+                                <option value="true" selected>Enabled</option>
+                                <option value="false">Disabled</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-cancel" id="presetCancelBtn">Cancel</button>
+                    <button type="submit" class="btn-submit" id="presetSubmitBtn">
+                        <i class="fas fa-save"></i>
+                        <span>Save Preset</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</body>
+</html>
