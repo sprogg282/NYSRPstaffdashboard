@@ -13,8 +13,33 @@ const SEASONAL_THEMES = [
 
 const PREVIEW_THEMES = new Set(['normal', ...SEASONAL_THEMES.map(({ name }) => name)]);
 const SEASONAL_DECORATIONS = {
-    halloween: ['🎃', '💀', '👻', '🕷️', '🕸️', '🦇', '🌙', '🍬'],
-    christmas: ['❄', '❄', '❄', '❄', '❄', '❄', '❄', '❄', '❄', '❄', '❄', '❄', '🎄', '🎅', '🎁', '⭐', '🔔', '🦌', '☃️', '✨']
+    halloween: [
+        { kind: 'pumpkin', symbol: '🎃' },
+        { kind: 'skeleton', symbol: '💀' },
+        { kind: 'ghost', symbol: '👻' },
+        { kind: 'pumpkin', symbol: '🎃' },
+        { kind: 'spider', symbol: '🕷️' },
+        { kind: 'bat', symbol: '🦇' },
+        { kind: 'moon', symbol: '🌙' },
+        { kind: 'candy', symbol: '🍬' },
+        { kind: 'bat', symbol: '🦇' },
+        { kind: 'spider', symbol: '🕷️' },
+        { kind: 'ghost', symbol: '👻' }
+    ],
+    christmas: [
+        ...Array.from({ length: 12 }, (_, index) => ({
+            kind: 'snow',
+            symbol: ['❄️', '❅', '❆'][index % 3]
+        })),
+        { kind: 'tree', symbol: '🎄' },
+        { kind: 'santa', symbol: '🎅' },
+        { kind: 'present', symbol: '🎁' },
+        { kind: 'star', symbol: '⭐' },
+        { kind: 'bell', symbol: '🔔' },
+        { kind: 'reindeer', symbol: '🦌' },
+        { kind: 'snowman', symbol: '☃️' },
+        { kind: 'sparkle', symbol: '✨' }
+    ]
 };
 
 export function getSeasonalTheme(date = new Date()) {
@@ -61,11 +86,22 @@ function applySeasonalTheme() {
     decorations.className = `seasonal-decorations seasonal-decorations--${activeTheme}`;
     decorations.setAttribute('aria-hidden', 'true');
 
-    SEASONAL_DECORATIONS[activeTheme].forEach((symbol, index) => {
+    SEASONAL_DECORATIONS[activeTheme].forEach(({ kind, symbol }, index) => {
         const decoration = document.createElement('span');
         decoration.className = 'seasonal-decoration';
         decoration.textContent = symbol;
         decoration.dataset.decoration = String(index + 1);
+        decoration.dataset.kind = kind;
+
+        if (kind === 'snow') {
+            const duration = 13 + Math.random() * 12;
+            decoration.style.setProperty('--snow-left', `${Math.random() * 100}%`);
+            decoration.style.setProperty('--snow-size', `${8 + Math.random() * 9}px`);
+            decoration.style.setProperty('--snow-duration', `${duration}s`);
+            decoration.style.setProperty('--snow-delay', `${-Math.random() * duration}s`);
+            decoration.style.setProperty('--snow-drift', `${-24 + Math.random() * 48}px`);
+        }
+
         decorations.append(decoration);
     });
 
