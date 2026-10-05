@@ -2935,6 +2935,212 @@ body {
     }
 }
 
+/* Seasonal accents are opt-in; the unmarked root keeps the existing NYSRP theme. */
+:root[data-seasonal-theme="halloween"] {
+    --accent: #ed7b24;
+    --accent-light: #ffad5c;
+    --accent-dark: #c4551b;
+    --accent-glow: rgba(237, 123, 36, 0.25);
+    --accent-subtle: rgba(237, 123, 36, 0.08);
+    --border-accent: rgba(237, 123, 36, 0.2);
+    --text-accent: #ffad5c;
+}
+
+:root[data-seasonal-theme="christmas"] {
+    --accent: #4fba82;
+    --accent-light: #7bd6a4;
+    --accent-dark: #34845a;
+    --accent-glow: rgba(79, 186, 130, 0.25);
+    --accent-subtle: rgba(79, 186, 130, 0.08);
+    --border-accent: rgba(79, 186, 130, 0.2);
+    --text-accent: #7bd6a4;
+}
+
+:root[data-seasonal-theme="halloween"] .orb-1 {
+    background: radial-gradient(circle, rgba(237, 123, 36, 0.16) 0%, transparent 70%);
+}
+
+:root[data-seasonal-theme="halloween"] .orb-2 {
+    background: radial-gradient(circle, rgba(124, 58, 150, 0.12) 0%, transparent 70%);
+}
+
+:root[data-seasonal-theme="halloween"] .login-bg-effects::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 100%, rgba(124, 58, 150, 0.08), transparent 60%);
+    box-shadow:
+        inset 44px 44px 0 -42px rgba(237, 123, 36, 0.65),
+        inset -44px -44px 0 -42px rgba(124, 58, 150, 0.65);
+}
+
+:root[data-seasonal-theme="halloween"] .seasonal-decorations::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 132px;
+    height: 132px;
+    opacity: 0.3;
+    background:
+        repeating-conic-gradient(from 0deg at 100% 0%, transparent 0deg 14deg, #d6a6ee 15deg 15.7deg, transparent 16deg 45deg),
+        repeating-radial-gradient(circle at 100% 0%, transparent 0 13px, #d6a6ee 14px 15px, transparent 16px 25px);
+    mask-image: radial-gradient(circle at 100% 0%, #000 0 132px, transparent 133px);
+}
+
+:root[data-seasonal-theme="christmas"] .orb-1 {
+    background: radial-gradient(circle, rgba(79, 186, 130, 0.15) 0%, transparent 70%);
+}
+
+:root[data-seasonal-theme="christmas"] .orb-2 {
+    background: radial-gradient(circle, rgba(190, 65, 65, 0.1) 0%, transparent 70%);
+}
+
+:root[data-seasonal-theme="christmas"] .login-bg-effects::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+        radial-gradient(circle, rgba(255, 255, 255, 0.65) 1px, transparent 1.6px),
+        radial-gradient(circle, rgba(255, 255, 255, 0.4) 1px, transparent 1.8px);
+    background-position: 0 0, 18px 24px;
+    background-size: 42px 42px, 62px 62px;
+    opacity: 0.3;
+}
+
+:root[data-seasonal-theme="christmas"] .seasonal-decorations::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 14px;
+    opacity: 0.7;
+    background-image:
+        radial-gradient(circle at 6px 7px, #f87171 0 3px, transparent 3.5px),
+        radial-gradient(circle at 20px 7px, #facc15 0 3px, transparent 3.5px),
+        radial-gradient(circle at 34px 7px, #4ade80 0 3px, transparent 3.5px),
+        linear-gradient(to bottom, transparent 4px, rgba(105, 176, 135, 0.6) 5px 6px, transparent 7px);
+    background-repeat: repeat-x;
+    background-size: 42px 14px;
+}
+
+.seasonal-decorations {
+    position: fixed;
+    z-index: 49;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    user-select: none;
+}
+
+.seasonal-decoration {
+    position: absolute;
+    display: block;
+    line-height: 1;
+    filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.45));
+}
+
+.seasonal-decorations--halloween .seasonal-decoration {
+    font-size: clamp(19px, 1.8vw, 25px);
+    opacity: 0.78;
+    animation: seasonal-drift 8s ease-in-out infinite alternate;
+}
+
+.seasonal-decorations--halloween .seasonal-decoration:nth-child(1) { top: 16%; left: 2px; }
+.seasonal-decorations--halloween .seasonal-decoration:nth-child(2) { top: 43%; left: 2px; animation-delay: -3s; }
+.seasonal-decorations--halloween .seasonal-decoration:nth-child(3) { top: 69%; left: 2px; animation-delay: -5s; }
+.seasonal-decorations--halloween .seasonal-decoration:nth-child(4) { top: 25%; right: 2px; animation-delay: -2s; }
+.seasonal-decorations--halloween .seasonal-decoration:nth-child(5) { top: 3%; right: 2px; font-size: 28px; opacity: 0.55; }
+.seasonal-decorations--halloween .seasonal-decoration:nth-child(6) { top: 54%; right: 2px; animation-delay: -4s; }
+.seasonal-decorations--halloween .seasonal-decoration:nth-child(7) { bottom: 8%; right: 2px; animation-delay: -6s; }
+.seasonal-decorations--halloween .seasonal-decoration:nth-child(8) { bottom: 22%; left: 2px; animation-delay: -1s; }
+
+.seasonal-decorations--christmas .seasonal-decoration:nth-child(-n+12) {
+    top: -24px;
+    color: #e9f6ff;
+    font-size: 16px;
+    opacity: 0.45;
+    text-shadow: 0 0 8px rgba(193, 226, 255, 0.45);
+    animation: seasonal-snowfall 13s linear infinite;
+}
+
+.seasonal-decorations--christmas .seasonal-decoration:nth-child(1) { left: 6px; animation-delay: -2s; }
+.seasonal-decorations--christmas .seasonal-decoration:nth-child(2) { left: 22px; animation-delay: -9s; }
+.seasonal-decorations--christmas .seasonal-decoration:nth-child(3) { left: 38px; animation-delay: -5s; }
+.seasonal-decorations--christmas .seasonal-decoration:nth-child(4) { right: 6px; animation-delay: -11s; }
+.seasonal-decorations--christmas .seasonal-decoration:nth-child(5) { right: 22px; animation-delay: -4s; }
+.seasonal-decorations--christmas .seasonal-decoration:nth-child(6) { right: 38px; animation-delay: -7s; }
+.seasonal-decorations--christmas .seasonal-decoration:nth-child(7) { left: 14px; animation-delay: -12s; }
+.seasonal-decorations--christmas .seasonal-decoration:nth-child(8) { right: 14px; animation-delay: -1s; }
+.seasonal-decorations--christmas .seasonal-decoration:nth-child(9) { left: 30px; animation-delay: -8s; }
+.seasonal-decorations--christmas .seasonal-decoration:nth-child(10) { right: 30px; animation-delay: -3s; }
+.seasonal-decorations--christmas .seasonal-decoration:nth-child(11) { left: 2px; animation-delay: -6s; }
+.seasonal-decorations--christmas .seasonal-decoration:nth-child(12) { right: 2px; animation-delay: -10s; }
+
+.seasonal-decorations--christmas .seasonal-decoration:nth-child(n+13) {
+    font-size: clamp(19px, 2vw, 29px);
+    opacity: 0.76;
+    animation: seasonal-drift 9s ease-in-out infinite alternate;
+}
+
+.seasonal-decorations--christmas .seasonal-decoration:nth-child(13) { top: 13%; left: 2px; }
+.seasonal-decorations--christmas .seasonal-decoration:nth-child(14) { top: 36%; right: 2px; animation-delay: -4s; }
+.seasonal-decorations--christmas .seasonal-decoration:nth-child(15) { top: 61%; left: 2px; animation-delay: -2s; }
+.seasonal-decorations--christmas .seasonal-decoration:nth-child(16) { top: 6%; right: 2px; animation-delay: -5s; }
+.seasonal-decorations--christmas .seasonal-decoration:nth-child(17) { top: 74%; right: 2px; animation-delay: -3s; }
+.seasonal-decorations--christmas .seasonal-decoration:nth-child(18) { top: 52%; left: 2px; animation-delay: -6s; }
+.seasonal-decorations--christmas .seasonal-decoration:nth-child(19) { bottom: 7%; left: 2px; animation-delay: -1s; }
+.seasonal-decorations--christmas .seasonal-decoration:nth-child(20) { top: 22%; right: 2px; animation-delay: -7s; }
+
+@keyframes seasonal-drift {
+    from { transform: translate3d(0, -5px, 0) rotate(-5deg); }
+    to { transform: translate3d(0, 5px, 0) rotate(5deg); }
+}
+
+@keyframes seasonal-snowfall {
+    from { transform: translate3d(0, -24px, 0) rotate(0deg); }
+    to { transform: translate3d(5px, 105vh, 0) rotate(150deg); }
+}
+
+@media (max-width: 700px) {
+    .seasonal-decoration {
+        animation-duration: 18s !important;
+    }
+
+    .seasonal-decorations--halloween .seasonal-decoration,
+    .seasonal-decorations--christmas .seasonal-decoration:nth-child(n+13) {
+        font-size: 19px;
+        opacity: 0.58;
+    }
+
+    .seasonal-decorations--halloween .seasonal-decoration:nth-child(2),
+    .seasonal-decorations--halloween .seasonal-decoration:nth-child(8),
+    .seasonal-decorations--christmas .seasonal-decoration:nth-child(15),
+    .seasonal-decorations--christmas .seasonal-decoration:nth-child(18),
+    .seasonal-decorations--christmas .seasonal-decoration:nth-child(n+19) {
+        display: none;
+    }
+
+    .seasonal-decorations--christmas .seasonal-decoration:nth-child(-n+12) {
+        font-size: 13px;
+        opacity: 0.32;
+    }
+
+    .seasonal-decorations--christmas .seasonal-decoration:nth-child(2),
+    .seasonal-decorations--christmas .seasonal-decoration:nth-child(7),
+    .seasonal-decorations--christmas .seasonal-decoration:nth-child(9),
+    .seasonal-decorations--christmas .seasonal-decoration:nth-child(11) {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .seasonal-decoration {
+        animation: none !important;
+    }
+}
+
 .rc-quick-btn strong {
     display: block;
     font-size: 0.88rem;

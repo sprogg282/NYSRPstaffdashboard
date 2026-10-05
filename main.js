@@ -6,6 +6,7 @@ import { auth, db, secondaryApp, secondaryAuth } from './firebase.js';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 import { collection, doc, setDoc, addDoc, getDoc, getDocs, onSnapshot, query, orderBy, deleteDoc, updateDoc, where } from 'firebase/firestore';
 import { ALLOWED_RANKS, normalizeRank, formatRankLabel, canManageRankChanges, canHandleBolo, canManagePresets, canManageLoa, canManageStaff, canManageReasons, canViewAllShifts, canManageShifts, canAccessRemoteControl, canViewErlcData } from './permissions.js';
+import './seasonal-theme.js';
 
 function canEditRank(targetRank, actingRank) {
     return canManageRankChanges(actingRank, targetRank);
