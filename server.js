@@ -215,7 +215,7 @@ const server = http.createServer(async (req, res) => {
 
       return sendJson(res, discordRes.ok ? 200 : discordRes.status, { success: discordRes.ok });
     } catch (error) {
-      console.error("[Discord Webhook Server Error]", error);
+      console.error("[Discord Webhook Server Error]", error?.name || "Error");
       return sendJson(res, 500, { error: "Internal server error processing webhook" });
     }
   }

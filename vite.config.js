@@ -136,6 +136,9 @@ export default defineConfig(({ mode }) => {
               try {
                 req.body = body || '{}';
                 req.nysrpAuditWebhookUrl = process.env.NYSRP_AUDIT_WEBHOOK_URL || env.NYSRP_AUDIT_WEBHOOK_URL;
+                if (!process.env.NYSRP_AUDIT_WEBHOOK_URL && req.nysrpAuditWebhookUrl) {
+                  process.env.NYSRP_AUDIT_WEBHOOK_URL = req.nysrpAuditWebhookUrl;
+                }
 
                 const { createRequire } = await import('module');
                 const nodeRequire = createRequire(import.meta.url);
@@ -210,7 +213,7 @@ export default defineConfig(({ mode }) => {
                 res.setHeader('Content-Type', 'application/json');
                 return res.end(JSON.stringify({ success: discordRes.ok }));
               } catch (err) {
-                console.error('[Discord Webhook Server Error]', err);
+                console.error('[Discord Webhook Server Error]', err?.name || 'Error');
                 res.statusCode = 500;
                 res.setHeader('Content-Type', 'application/json');
                 return res.end(JSON.stringify({ error: 'Internal server error processing webhook' }));
@@ -231,6 +234,12 @@ export default defineConfig(({ mode }) => {
               const { createRequire } = await import('module');
               const nodeRequire = createRequire(import.meta.url);
               const { handleErlcApiRequest, erlcInstance } = nodeRequire('./server-erlc.js');
+
+              for (const name of ['WEBSITE_SYSTEM_LOG', 'NYSRP_ERROR_WEBHOOK_URL']) {
+                if (!process.env[name] && env[name]) {
+                  process.env[name] = env[name];
+                }
+              }
 
               if (env.ERLC_SERVER_KEY || process.env.ERLC_SERVER_KEY) {
                 erlcInstance.updateConfig(

@@ -8,8 +8,8 @@
     <link rel="icon" type="image/png" href="/assets/logo-DDIoqayr.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
-  <script type="module" crossorigin src="/assets/index-CvIIOE3B.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-MBIlrH__.css">
+  <script type="module" crossorigin src="/assets/index-B9K2-HBY.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-D8DRzhyH.css">
 </head>
 <body>
 
@@ -59,6 +59,11 @@
                 <a href="#" class="nav-item active" data-page="overview" id="navOverview">
                     <i class="fas fa-chart-pie"></i>
                     <span>Overview</span>
+                </a>
+                <a href="#" class="nav-item" data-page="notifications" id="navNotifications">
+                    <i class="fas fa-bell"></i>
+                    <span>Notifications</span>
+                    <span class="notification-nav-count hidden" id="notificationNavCount" aria-live="polite"></span>
                 </a>
                 <a href="#" class="nav-item" data-page="logs" id="navLogs">
                     <i class="fas fa-clipboard-list"></i>
@@ -159,6 +164,10 @@
                     <span class="topbar-date" id="currentDate"></span>
                 </div>
                 <div class="topbar-actions">
+                    <button class="notification-bell" id="notificationBell" type="button" aria-label="Open notifications">
+                        <i class="fas fa-bell"></i>
+                        <span class="notification-bell-count hidden" id="notificationBellCount" aria-live="polite"></span>
+                    </button>
                     <button class="btn-new-log" id="newLogBtn" type="button" aria-label="Create new log">
                         <i class="fas fa-plus"></i>
                         <span>New Log</span>
@@ -169,6 +178,74 @@
             <!-- Pages -->
             <!-- Overview Page -->
             <section id="overviewPage" class="page active">
+                <section class="personal-dashboard panel-card" aria-labelledby="personalDashboardTitle">
+                    <div class="personal-dashboard-heading">
+                        <div>
+                            <p class="eyebrow">YOUR STAFF DASHBOARD</p>
+                            <h2 id="personalDashboardTitle">Welcome back, <span id="personalStaffName">Staff</span> 👋</h2>
+                        </div>
+                        <span class="rank-pill" id="personalStaffRank">Staff</span>
+                    </div>
+                    <div class="personal-summary-grid">
+                        <article class="personal-summary-card">
+                            <span class="personal-summary-label"><i class="fas fa-clock"></i> Shift</span>
+                            <strong id="personalShiftStatus">⚪ OFF DUTY</strong>
+                        </article>
+                        <article class="personal-summary-card">
+                            <span class="personal-summary-label"><i class="fas fa-chart-line"></i> Today's Activity</span>
+                            <strong id="personalTodayActivity">0 actions</strong>
+                        </article>
+                        <article class="personal-summary-card">
+                            <span class="personal-summary-label"><i class="fas fa-graduation-cap"></i> Training</span>
+                            <strong id="personalTrainingStatus">Not started</strong>
+                        </article>
+                        <article class="personal-summary-card">
+                            <span class="personal-summary-label"><i class="fas fa-calendar-alt"></i> LOA</span>
+                            <strong id="personalLoaStatus">None</strong>
+                        </article>
+                        <button class="personal-summary-card personal-notification-link" id="personalNotificationLink" type="button">
+                            <span class="personal-summary-label"><i class="fas fa-bell"></i> Notifications</span>
+                            <strong id="personalNotificationCount">0 unread</strong>
+                        </button>
+                    </div>
+                </section>
+
+                <section class="staff-statistics panel-card" aria-labelledby="staffStatisticsTitle">
+                    <div class="staff-statistics-heading">
+                        <div>
+                            <p class="eyebrow">ACTIVITY OVERVIEW</p>
+                            <h3 id="staffStatisticsTitle">Staff Statistics</h3>
+                        </div>
+                        <div class="staff-statistics-controls">
+                            <label class="statistics-control hidden" id="statisticsStaffControl" for="statisticsStaffSelect">
+                                <span>Staff member</span>
+                                <select id="statisticsStaffSelect"></select>
+                            </label>
+                            <label class="statistics-control" for="statisticsActivityFilter">
+                                <span>Activity</span>
+                                <select id="statisticsActivityFilter">
+                                    <option value="all">All activity</option>
+                                    <option value="warn">Warnings</option>
+                                    <option value="kick">Kicks</option>
+                                    <option value="ban">Bans</option>
+                                    <option value="note">Notes</option>
+                                    <option value="bolo">Ban BOLOs</option>
+                                    <option value="shifts">Shift hours</option>
+                                </select>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="weekly-stat-grid">
+                        <article><span>Warnings</span><strong id="weeklyWarnings">0</strong></article>
+                        <article><span>Kicks</span><strong id="weeklyKicks">0</strong></article>
+                        <article><span>Bans</span><strong id="weeklyBans">0</strong></article>
+                        <article><span>Notes</span><strong id="weeklyNotes">0</strong></article>
+                        <article><span>Ban BOLOs</span><strong id="weeklyBolos">0</strong></article>
+                        <article><span>Shift Hours</span><strong id="weeklyShiftHours">0m</strong></article>
+                    </div>
+                    <div class="activity-chart" id="staffActivityGraph" role="img" aria-label="Seven day activity chart"></div>
+                </section>
+
                 <div class="stats-grid">
                     <div class="stat-card" id="statWarns">
                         <div class="stat-icon warn-icon">
@@ -291,6 +368,38 @@
                         </tbody>
                     </table>
                 </div>
+            </section>
+
+            <section id="notificationsPage" class="page">
+                <div class="page-header-bar notifications-page-header">
+                    <div>
+                        <p class="eyebrow">STAFF DASHBOARD</p>
+                        <h3>🔔 Notifications</h3>
+                    </div>
+                    <div class="notification-page-actions">
+                        <button class="btn-submit management-notification-action hidden" id="sendStaffNotificationBtn" type="button">
+                            <i class="fas fa-paper-plane"></i>
+                            <span>Send Staff Notification</span>
+                        </button>
+                        <button class="btn-cancel" id="markAllNotificationsReadBtn" type="button">Mark All as Read</button>
+                    </div>
+                </div>
+                <div class="notification-list" id="notificationList" aria-live="polite"></div>
+                <section id="ownerNotificationManager" class="notification-owner-manager hidden" aria-labelledby="ownerNotificationManagerTitle">
+                    <div class="page-header-bar">
+                        <div>
+                            <p class="eyebrow">OWNER ONLY</p>
+                            <h3 id="ownerNotificationManagerTitle">Manage Staff Notifications</h3>
+                        </div>
+                        <label class="statistics-control" for="ownerNotificationRecipient">
+                            Staff member
+                            <select id="ownerNotificationRecipient">
+                                <option value="">Select a staff member</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="notification-list" id="managedNotificationList" aria-live="polite"></div>
+                </section>
             </section>
 
             <!-- Logs Page -->
@@ -1029,6 +1138,68 @@
                 </div>
             </section>
         </main>
+    </div>
+
+    <div class="modal-overlay" id="staffNotificationModal">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <div class="modal-icon select-icon"><i class="fas fa-bell"></i></div>
+                    <h2>Send Staff Notification</h2>
+                </div>
+                <button class="modal-close" id="staffNotificationCloseBtn" type="button" aria-label="Close notification form"><i class="fas fa-times"></i></button>
+            </div>
+            <form class="modal-form" id="staffNotificationForm">
+                <div class="form-group">
+                    <label for="staffNotificationTitle">Title</label>
+                    <input id="staffNotificationTitle" type="text" maxlength="100" required>
+                </div>
+                <div class="form-group">
+                    <label for="staffNotificationMessage">Message</label>
+                    <textarea id="staffNotificationMessage" rows="4" maxlength="1000" required></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="staffNotificationPriority">Priority</label>
+                        <select id="staffNotificationPriority">
+                            <option value="normal">Normal</option>
+                            <option value="important">Important</option>
+                            <option value="urgent">Urgent</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="staffNotificationAudience">Recipients</label>
+                        <select id="staffNotificationAudience">
+                            <option value="all">All Staff</option>
+                            <option value="on-duty">Staff Currently On Duty</option>
+                            <option value="selected">Select Staff</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group hidden" id="staffNotificationRecipientsGroup">
+                    <label for="staffNotificationRecipients">Select staff members</label>
+                    <select id="staffNotificationRecipients" multiple size="5"></select>
+                </div>
+                <div class="form-group">
+                    <label for="staffNotificationDestination">Destination (optional)</label>
+                    <select id="staffNotificationDestination">
+                        <option value="">No destination</option>
+                        <option value="overview">Overview</option>
+                        <option value="logs">Action Logs</option>
+                        <option value="shifts">Manage Shifts</option>
+                        <option value="training">Staff Training</option>
+                        <option value="loa">LOA Requests</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button class="btn-cancel" id="staffNotificationCancelBtn" type="button">Cancel</button>
+                    <button class="btn-submit" id="staffNotificationSubmitBtn" type="submit">
+                        <i class="fas fa-paper-plane"></i>
+                        <span>Send Notification</span>
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <!-- ============ LOG MODAL ============ -->

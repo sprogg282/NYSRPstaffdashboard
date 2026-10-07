@@ -2,9 +2,9 @@
 // NYSRP ERLC Staff Dashboard - Application JS
 // ==========================================
 
-import { auth, db, secondaryApp, secondaryAuth } from './firebase.js';
+import { app, auth, db, secondaryApp, secondaryAuth } from './firebase.js';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
-import { collection, doc, setDoc, addDoc, getDoc, getDocs, onSnapshot, query, orderBy, deleteDoc, updateDoc, where } from 'firebase/firestore';
+import { collection, doc, setDoc, addDoc, getDoc, getDocs, onSnapshot, query, orderBy, deleteDoc, updateDoc, where, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { ALLOWED_RANKS, normalizeRank, formatRankLabel, canManageRankChanges, canHandleBolo, canManagePresets, canManageLoa, canManageStaff, canManageReasons, canViewAllShifts, canManageShifts, canAccessRemoteControl, canViewErlcData } from './permissions.js';
 import './seasonal-theme.js';
 
@@ -157,6 +157,15 @@ let reasonTemplates = [];
 let loaRequests = [];
 let shifts = [];
 let activeUserShift = null;
+let staffMembers = [];
+let staffMembersLoaded = false;
+let shiftsLoaded = false;
+let staffNotifications = [];
+let staffNotificationError = null;
+let managedStaffNotifications = [];
+let selectedNotificationRecipientUid = "";
+let selectedStatsUid = null;
+let lastObservedDutyState = null;
 let currentShiftFilter = "all";
 let shiftSearchQuery = "";
 let currentFilter = "all";
@@ -188,6 +197,8 @@ let unsubPresets = null;
 let unsubReasons = null;
 let unsubLoa = null;
 let unsubShifts = null;
+let unsubNotifications = null;
+let unsubManagedNotifications = null;
 let unsubErlcCommands = null;
 let unsubErlcKills = null;
 let unsubErlcPlayerSessions = null;
@@ -265,6 +276,15 @@ function setupFirebaseListeners() {
     if (unsubPresets) unsubPresets();
     if (unsubReasons) unsubReasons();
     if (unsubLoa) unsubLoa();
+    if (unsubNotifications) unsubNotifications();
+    if (unsubManagedNotifications) unsubManagedNotifications();
+    unsubManagedNotifications = null;
+    managedStaffNotifications = [];
+    selectedNotificationRecipientUid = "";
+    if (canViewAllShifts(staffRank)) {
+        staffMembersLoaded = false;
+        shiftsLoaded = false;
+    }
 
     unsubLogs = onSnapshot(collection(db, "logs"), (snapshot) => {
         logs = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
@@ -306,6 +326,7 @@ function setupFirebaseListeners() {
         loaRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         loaRequests.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
         renderLoaRequests();
+        renderPersonalDashboard();
     }, (error) => {
         showToast("Database Error", `Unable to load LOA requests: ${error.message}`, "error");
     });
@@ -313,6 +334,7 @@ function setupFirebaseListeners() {
     unsubShifts = onSnapshot(collection(db, "shifts"), (snapshot) => {
         shifts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         shifts.sort((a, b) => new Date(b.startTime || b.createdAt || 0) - new Date(a.startTime || a.createdAt || 0));
+        shiftsLoaded = true;
 
         const myCurrentUid = auth.currentUser?.uid;
         activeUserShift = shifts.find(s => {
@@ -320,7 +342,16 @@ function setupFirebaseListeners() {
             return s.staffUid === myCurrentUid && hasValidStart && (s.status === "active" || s.status === "break");
         }) || null;
 
+        const isOnDuty = Boolean(activeUserShift);
+        const wasOnDuty = lastObservedDutyState;
+        lastObservedDutyState = isOnDuty;
+        if (isOnDuty) {
+            releaseStoredStaffNotifications(wasOnDuty === false);
+        }
+
         updateShiftClockUI();
+        renderPersonalDashboard();
+        renderStaffStatistics();
         if (shiftsPage && shiftsPage.classList.contains("active")) {
             renderShifts();
         }
@@ -330,12 +361,53 @@ function setupFirebaseListeners() {
 
     if (unsubStaff) unsubStaff();
     unsubStaff = null;
-    if (canManageStaffUI()) {
+    if (canViewAllShifts(staffRank)) {
         unsubStaff = onSnapshot(collection(db, "users"), (snapshot) => {
-            const users = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-            renderStaffList(users);
+            staffMembers = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+            staffMembersLoaded = true;
+            if (canManageStaffUI()) renderStaffList(staffMembers);
+            renderStaffStatistics();
+            renderNotificationRecipientOptions();
         }, (error) => {
-            console.warn("Unable to load staff:", error);
+            console.error("Unable to load staff statistics recipients:", error);
+            showToast("Database Error", `Unable to load staff list: ${error.message}`, "error");
+        });
+    }
+
+    const currentUid = auth.currentUser?.uid;
+    if (currentUid) {
+        const notificationQuery = query(
+            collection(db, "users", currentUid, "notifications"),
+            where("recipientUid", "==", currentUid),
+            where("available", "==", true)
+        );
+        unsubNotifications = onSnapshot(notificationQuery, (snapshot) => {
+            staffNotifications = snapshot.docs.map(notification => ({
+                id: notification.id,
+                ...notification.data()
+            })).sort((a, b) =>
+                (timestampToMillis(b.createdAt) || 0) - (timestampToMillis(a.createdAt) || 0)
+            );
+            staffNotificationError = null;
+            renderNotifications();
+            renderPersonalDashboard();
+        }, (error) => {
+            staffNotificationError = error;
+            console.error("Unable to load staff notifications:", {
+                projectId: app.options.projectId,
+                path: "users/{uid}/notifications",
+                actorUid: currentUid,
+                actorRank: staffRank,
+                userDocumentRank: currentUserDoc?.rank || null,
+                query: {
+                    recipientUid: currentUid,
+                    available: true
+                },
+                firebaseErrorName: error?.name || "UnknownError",
+                firebaseErrorCode: error?.code || "unknown",
+                firebaseErrorMessage: error?.message || String(error)
+            });
+            showToast("Database Error", `Unable to load notifications: ${error.message}`, "error");
         });
     }
 
@@ -405,6 +477,7 @@ const navSearch = document.getElementById("navSearch");
 const navToolbox = document.getElementById("navToolbox");
 const navLoa = document.getElementById("navLoa");
 const navShifts = document.getElementById("navShifts");
+const navNotifications = document.getElementById("navNotifications");
 const navRemoteControl = document.getElementById("navRemoteControl");
 const navErlcPlayers = document.getElementById("navErlcPlayers");
 const navErlcLogs = document.getElementById("navErlcLogs");
@@ -424,7 +497,8 @@ const reasonsPage = document.getElementById("reasonsPage");
 const remoteControlPage = document.getElementById("remoteControlPage");
 const erlcPlayersPage = document.getElementById("erlcPlayersPage");
 const erlcLogsPage = document.getElementById("erlcLogsPage");
-const pages = [overviewPage, logsPage, searchPage, toolboxPage, loaPage, shiftsPage, trainingPage, staffPage, reasonsPage, remoteControlPage, erlcPlayersPage, erlcLogsPage];
+const notificationsPage = document.getElementById("notificationsPage");
+const pages = [overviewPage, logsPage, searchPage, toolboxPage, loaPage, shiftsPage, trainingPage, staffPage, reasonsPage, remoteControlPage, erlcPlayersPage, erlcLogsPage, notificationsPage];
 
 // Modals
 const logModal = document.getElementById("logModal");
@@ -825,6 +899,11 @@ function updateDateTime() {
     }
 }
 setInterval(updateDateTime, 60000);
+setInterval(() => {
+    if (!auth.currentUser) return;
+    renderPersonalDashboard();
+    renderStaffStatistics();
+}, 60000);
 updateDateTime();
 
 // ============================
@@ -852,6 +931,13 @@ onAuthStateChanged(auth, async (user) => {
             currentStaff = robloxUsername;
             staffRank = normalizedRank;
             currentStaffEmail = userEmail;
+            selectedStatsUid = user.uid;
+            staffMembers = [];
+            staffMembersLoaded = false;
+            shiftsLoaded = false;
+            staffNotifications = [];
+            staffNotificationError = null;
+            lastObservedDutyState = null;
 
             // Safe sync backfill if any core field is missing.
             // Do not rewrite an existing user's rank from their own session; rules correctly
@@ -892,6 +978,13 @@ onAuthStateChanged(auth, async (user) => {
             console.warn("User profile sync warning:", err);
             currentUserDoc = null;
             currentDiscordUserId = "";
+            selectedStatsUid = null;
+            staffMembers = [];
+            staffMembersLoaded = false;
+            shiftsLoaded = false;
+            staffNotifications = [];
+            staffNotificationError = null;
+            lastObservedDutyState = null;
             currentStaff = user.email ? user.email.split('@')[0] : "Staff";
             staffRank = "Junior Moderator";
             currentStaffEmail = user.email;
@@ -960,6 +1053,8 @@ onAuthStateChanged(auth, async (user) => {
         if (unsubPresets) unsubPresets();
         if (unsubReasons) unsubReasons();
         if (unsubLoa) unsubLoa();
+        if (unsubNotifications) unsubNotifications();
+        if (unsubManagedNotifications) unsubManagedNotifications();
         if (unsubStaff) unsubStaff();
         if (unsubShifts) unsubShifts();
         if (unsubErlcCommands) unsubErlcCommands();
@@ -967,7 +1062,9 @@ onAuthStateChanged(auth, async (user) => {
         if (unsubErlcPlayerSessions) unsubErlcPlayerSessions();
         if (unsubErlcEvents) unsubErlcEvents();
         if (unsubErlcModCalls) unsubErlcModCalls();
-        unsubLogs = unsubPresets = unsubReasons = unsubLoa = unsubStaff = unsubShifts = unsubErlcCommands = unsubErlcKills = unsubErlcPlayerSessions = unsubErlcEvents = unsubErlcModCalls = null;
+        unsubLogs = unsubPresets = unsubReasons = unsubLoa = unsubStaff = unsubShifts = unsubNotifications = unsubManagedNotifications = unsubErlcCommands = unsubErlcKills = unsubErlcPlayerSessions = unsubErlcEvents = unsubErlcModCalls = null;
+        managedStaffNotifications = [];
+        selectedNotificationRecipientUid = "";
         shifts = [];
         activeUserShift = null;
         erlcPlayers = [];
@@ -1039,6 +1136,11 @@ function switchPage(pageId, updateHistory = true) {
         navOverview.classList.add("active");
         pageTitle.textContent = "Overview";
         renderOverview();
+    } else if (pageId === "notifications") {
+        notificationsPage.classList.add("active");
+        navNotifications?.classList.add("active");
+        pageTitle.textContent = "Notifications";
+        renderNotifications();
     } else if (pageId === "logs") {
         logsPage.classList.add("active");
         navLogs.classList.add("active");
@@ -1134,6 +1236,39 @@ window.addEventListener("popstate", () => {
     const mapped = p === "/loa" ? "loa" : p === "/shifts" ? "shifts" : p === "/remote-control" ? "remote-control" : p === "/erlc-players" ? "erlc-players" : p === "/erlc-logs" ? "erlc-logs" : "overview";
     switchPage(mapped, false);
 });
+
+document.getElementById("notificationBell")?.addEventListener("click", () => switchPage("notifications"));
+document.getElementById("personalNotificationLink")?.addEventListener("click", () => switchPage("notifications"));
+document.getElementById("markAllNotificationsReadBtn")?.addEventListener("click", markAllStaffNotificationsRead);
+document.getElementById("ownerNotificationRecipient")?.addEventListener("change", event => {
+    loadManagedStaffNotifications(event.target.value);
+});
+document.getElementById("sendStaffNotificationBtn")?.addEventListener("click", () => {
+    if (!canManagePresets(staffRank)) {
+        showToast("Permission Denied", "Only Management, Director, Co Owner, and Owner can send staff notifications.", "error");
+        return;
+    }
+    renderNotificationRecipientOptions();
+    document.getElementById("staffNotificationModal").classList.add("visible");
+});
+document.getElementById("staffNotificationForm")?.addEventListener("submit", sendStaffNotification);
+document.getElementById("staffNotificationAudience")?.addEventListener("change", event => {
+    document.getElementById("staffNotificationRecipientsGroup").classList.toggle("hidden", event.target.value !== "selected");
+});
+document.getElementById("staffNotificationCloseBtn")?.addEventListener("click", () => {
+    document.getElementById("staffNotificationModal").classList.remove("visible");
+});
+document.getElementById("staffNotificationCancelBtn")?.addEventListener("click", () => {
+    document.getElementById("staffNotificationModal").classList.remove("visible");
+});
+document.getElementById("staffNotificationModal")?.addEventListener("click", event => {
+    if (event.target.id === "staffNotificationModal") event.currentTarget.classList.remove("visible");
+});
+document.getElementById("statisticsStaffSelect")?.addEventListener("change", event => {
+    selectedStatsUid = event.target.value || auth.currentUser?.uid || null;
+    renderStaffStatistics();
+});
+document.getElementById("statisticsActivityFilter")?.addEventListener("change", renderStaffStatistics);
 
 document.getElementById("viewAllLogs").addEventListener("click", (e) => {
     e.preventDefault();
@@ -1337,6 +1472,7 @@ logModalForm.addEventListener("submit", async (e) => {
         evidence,
         message: `${actionLabel} | Target: ${targetUser} | By: ${staffUser} | Reason: ${reasonText}`,
         user: staffUser,
+        staffUid: auth.currentUser?.uid || "",
         time: Date.now()
     };
 
@@ -2001,7 +2137,675 @@ function getBoloBadgeClass(status) {
     return "badge-bolo";
 }
 
+function getLogTimeMillis(log) {
+    return timestampToMillis(log.date || log.createdAt || log.time);
+}
+
+function getStaffActivityLogs(uid, staffName) {
+    return logs.filter(log => {
+        if (log.staffUid) return log.staffUid === uid;
+        return String(log.staff || log.user || "").trim().toLowerCase() === String(staffName || "").trim().toLowerCase();
+    });
+}
+
+function getLocalDayStart(date) {
+    const start = new Date(date);
+    start.setHours(0, 0, 0, 0);
+    return start.getTime();
+}
+
+function getWeekStartMillis(date = new Date()) {
+    const start = new Date(getLocalDayStart(date));
+    start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+    return start.getTime();
+}
+
+function getLogStatisticType(log) {
+    return ["warn", "kick", "ban", "note", "bolo"].includes(log.type) ? log.type : null;
+}
+
+function getShiftWorkSecondsInRange(uid, rangeStart, rangeEnd) {
+    const now = Date.now();
+    return shifts.reduce((total, shift) => {
+        if (shift.staffUid !== uid) return total;
+        const start = timestampToMillis(shift.startTime || shift.createdAt);
+        if (start === null) return total;
+
+        const end = timestampToMillis(shift.endTime) ?? now;
+        const overlapStart = Math.max(start, rangeStart);
+        const overlapEnd = Math.min(end, rangeEnd, now);
+        if (overlapEnd <= overlapStart) return total;
+
+        let workedMs = overlapEnd - overlapStart;
+        const breaks = Array.isArray(shift.breaks) ? shift.breaks : [];
+        breaks.forEach(shiftBreak => {
+            const breakStart = timestampToMillis(shiftBreak.start);
+            if (breakStart === null) return;
+            const breakEnd = timestampToMillis(shiftBreak.end)
+                ?? (shift.status === "break" ? now : null);
+            if (breakEnd === null) return;
+            const clippedStart = Math.max(breakStart, overlapStart);
+            const clippedEnd = Math.min(breakEnd, overlapEnd);
+            if (clippedEnd > clippedStart) workedMs -= clippedEnd - clippedStart;
+        });
+
+        if (breaks.length === 0 && shift.status === "completed" && start >= rangeStart && end <= rangeEnd
+            && Number.isFinite(shift.durationSeconds) && shift.durationSeconds > 0) {
+            workedMs = Math.min(workedMs, shift.durationSeconds * 1000);
+        }
+        return total + Math.max(0, workedMs) / 1000;
+    }, 0);
+}
+
+function formatStatisticsShiftHours(totalSeconds) {
+    const minutes = Math.floor(Math.max(0, totalSeconds || 0) / 60);
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return hours ? `${hours}h ${remainingMinutes}m` : `${remainingMinutes}m`;
+}
+
+function renderPersonalDashboard() {
+    if (!auth.currentUser) return;
+
+    const uid = auth.currentUser.uid;
+    const name = currentUserDoc?.robloxUsername || currentUserDoc?.displayName || currentStaff || "Staff";
+    const training = currentUserDoc?.training || null;
+    const now = new Date();
+    const todayStart = getLocalDayStart(now);
+    const personalLogs = getStaffActivityLogs(uid, name);
+    const todayActions = personalLogs.filter(log => {
+        const time = getLogTimeMillis(log);
+        return time !== null && time >= todayStart && time <= now.getTime() && getLogStatisticType(log);
+    }).length;
+    const latestLoa = loaRequests
+        .filter(request => request.staffUid === uid)
+        .sort((a, b) => (timestampToMillis(b.createdAt) || 0) - (timestampToMillis(a.createdAt) || 0))[0];
+    const unreadCount = staffNotifications.filter(notification => notification.available !== false && notification.read !== true).length;
+
+    document.getElementById("personalStaffName").textContent = name;
+    document.getElementById("personalStaffRank").textContent = formatRankLabel(currentUserDoc?.rank || staffRank);
+    document.getElementById("personalShiftStatus").textContent = activeUserShift
+        ? (activeUserShift.status === "break" ? "🟢 ON DUTY · ON BREAK" : "🟢 ON DUTY")
+        : "⚪ OFF DUTY";
+    document.getElementById("personalTodayActivity").textContent = `${todayActions} ${todayActions === 1 ? "action" : "actions"}`;
+
+    let trainingStatus = "Not required";
+    if (training) {
+        const completed = training.tutorialCompleted === true || training.status === "completed";
+        if (completed) {
+            trainingStatus = "100% Complete";
+        } else if (training.status === "in_progress") {
+            const stepCount = Math.max(1, Array.isArray(TRAINING_STEPS) ? TRAINING_STEPS.length : 1);
+            const step = Math.min(stepCount, Math.max(1, Number(training.currentStep) || 1));
+            trainingStatus = `${Math.round((step / stepCount) * 100)}% · In progress`;
+        } else {
+            trainingStatus = "Not started";
+        }
+    } else if (isTrainingEligibleRank(currentUserDoc?.rank || staffRank)) {
+        trainingStatus = "Not started";
+    }
+    document.getElementById("personalTrainingStatus").textContent = trainingStatus;
+
+    const loaStatus = latestLoa ? String(latestLoa.status || "pending").toLowerCase() : "";
+    document.getElementById("personalLoaStatus").textContent = !latestLoa
+        ? "None"
+        : loaStatus === "approved"
+            ? "🟢 Approved"
+            : loaStatus === "pending"
+                ? "🟡 Pending"
+                : loaStatus === "denied"
+                    ? "🔴 Denied"
+                    : loaStatus.charAt(0).toUpperCase() + loaStatus.slice(1);
+    document.getElementById("personalNotificationCount").textContent = `${unreadCount} unread`;
+}
+
+function renderStaffStatistics() {
+    if (!auth.currentUser) return;
+
+    const canReviewStaffStats = canViewAllShifts(staffRank);
+    const staffControl = document.getElementById("statisticsStaffControl");
+    const staffSelect = document.getElementById("statisticsStaffSelect");
+    const filterSelect = document.getElementById("statisticsActivityFilter");
+    const requestedUid = selectedStatsUid || auth.currentUser.uid;
+    const targetUid = canReviewStaffStats
+        && (requestedUid === auth.currentUser.uid || staffMembers.some(member => member.id === requestedUid))
+        ? requestedUid
+        : auth.currentUser.uid;
+    const targetProfile = targetUid === auth.currentUser.uid
+        ? currentUserDoc
+        : staffMembers.find(member => member.id === targetUid);
+    const targetName = targetProfile?.robloxUsername || targetProfile?.displayName || targetProfile?.username || currentStaff || "Staff";
+    const targetLogs = getStaffActivityLogs(targetUid, targetName);
+    const now = new Date();
+    const nowMillis = now.getTime();
+    const weekStart = getWeekStartMillis(now);
+    const weekLogs = targetLogs.filter(log => {
+        const time = getLogTimeMillis(log);
+        return time !== null && time >= weekStart && time <= nowMillis;
+    });
+    const counts = { warn: 0, kick: 0, ban: 0, note: 0, bolo: 0 };
+    weekLogs.forEach(log => {
+        const type = getLogStatisticType(log);
+        if (type) counts[type] += 1;
+    });
+
+    if (staffControl) staffControl.classList.toggle("hidden", !canReviewStaffStats);
+    if (canReviewStaffStats && staffSelect) {
+        const options = [
+            { id: auth.currentUser.uid, name: currentUserDoc?.robloxUsername || currentStaff || "My Statistics", rank: staffRank },
+            ...staffMembers
+                .filter(member => member.id !== auth.currentUser.uid)
+                .map(member => ({
+                    id: member.id,
+                    name: member.robloxUsername || member.displayName || member.username || member.email || "Staff",
+                    rank: member.rank || "Staff"
+                }))
+        ];
+        staffSelect.innerHTML = options.map(member =>
+            `<option value="${escapeHTML(member.id)}">${escapeHTML(member.name)} · ${escapeHTML(formatRankLabel(member.rank))}</option>`
+        ).join("");
+        if (!options.some(member => member.id === targetUid)) selectedStatsUid = auth.currentUser.uid;
+        staffSelect.value = selectedStatsUid || auth.currentUser.uid;
+    }
+
+    document.getElementById("staffStatisticsTitle").textContent = canReviewStaffStats
+        ? `Statistics · ${targetName}`
+        : "Your Staff Statistics";
+    document.getElementById("weeklyWarnings").textContent = String(counts.warn);
+    document.getElementById("weeklyKicks").textContent = String(counts.kick);
+    document.getElementById("weeklyBans").textContent = String(counts.ban);
+    document.getElementById("weeklyNotes").textContent = String(counts.note);
+    document.getElementById("weeklyBolos").textContent = String(counts.bolo);
+    document.getElementById("weeklyShiftHours").textContent = formatStatisticsShiftHours(
+        getShiftWorkSecondsInRange(targetUid, weekStart, nowMillis)
+    );
+
+    const selectedActivity = filterSelect?.value || "all";
+    const firstDay = new Date(getLocalDayStart(now));
+    firstDay.setDate(firstDay.getDate() - 6);
+    const chartRows = Array.from({ length: 7 }, (_, index) => {
+        const dayStart = new Date(firstDay);
+        dayStart.setDate(firstDay.getDate() + index);
+        const startMillis = dayStart.getTime();
+        const endMillis = startMillis + 24 * 60 * 60 * 1000;
+        const count = selectedActivity === "shifts"
+            ? getShiftWorkSecondsInRange(targetUid, startMillis, Math.min(endMillis, nowMillis)) / 3600
+            : targetLogs.filter(log => {
+                const time = getLogTimeMillis(log);
+                const type = getLogStatisticType(log);
+                return time !== null && time >= startMillis && time < endMillis && type
+                    && (selectedActivity === "all" || selectedActivity === type);
+            }).length;
+        return {
+            label: dayStart.toLocaleDateString("en-US", { weekday: "short" }),
+            value: count,
+            formattedValue: selectedActivity === "shifts" ? `${count.toFixed(1)}h` : String(count)
+        };
+    });
+    const maxValue = Math.max(1, ...chartRows.map(row => row.value));
+    const graph = document.getElementById("staffActivityGraph");
+    graph.setAttribute("aria-label", `Seven day ${selectedActivity === "all" ? "activity" : selectedActivity} chart for ${targetName}`);
+    graph.innerHTML = chartRows.map(row => `
+        <div class="activity-chart-row">
+            <span>${row.label}</span>
+            <div class="activity-chart-track"><div class="activity-chart-bar" style="width: ${row.value ? Math.max(2, row.value / maxValue * 100) : 0}%"></div></div>
+            <strong>${row.formattedValue}</strong>
+        </div>
+    `).join("");
+}
+
+function getAvailableStaffNotifications() {
+    return staffNotifications.filter(notification => notification.available === true);
+}
+
+function isOwnerRank() {
+    return normalizeRank(staffRank) === "Owner";
+}
+
+function getRelativeNotificationTime(value) {
+    const time = timestampToMillis(value);
+    if (time === null) return "Recently";
+    const elapsedMinutes = Math.max(0, Math.floor((Date.now() - time) / 60000));
+    if (elapsedMinutes < 1) return "Just now";
+    if (elapsedMinutes < 60) return `${elapsedMinutes}m ago`;
+    const elapsedHours = Math.floor(elapsedMinutes / 60);
+    if (elapsedHours < 24) return `${elapsedHours}h ago`;
+    const elapsedDays = Math.floor(elapsedHours / 24);
+    if (elapsedDays < 7) return `${elapsedDays}d ago`;
+    return new Date(time).toLocaleDateString();
+}
+
+function renderNotifications() {
+    const list = document.getElementById("notificationList");
+    const visibleNotifications = getAvailableStaffNotifications();
+    const unreadCount = visibleNotifications.filter(notification => notification.read !== true).length;
+    const bellCount = document.getElementById("notificationBellCount");
+    const navCount = document.getElementById("notificationNavCount");
+    const sendButton = document.getElementById("sendStaffNotificationBtn");
+    const markAllButton = document.getElementById("markAllNotificationsReadBtn");
+    const ownerManager = document.getElementById("ownerNotificationManager");
+
+    [bellCount, navCount].forEach(element => {
+        if (!element) return;
+        element.textContent = unreadCount > 99 ? "99+" : String(unreadCount);
+        element.classList.toggle("hidden", unreadCount === 0);
+    });
+    sendButton?.classList.toggle("hidden", !canManagePresets(staffRank));
+    ownerManager?.classList.toggle("hidden", !isOwnerRank());
+    if (markAllButton) markAllButton.disabled = unreadCount === 0;
+    if (isOwnerRank()) renderManagedStaffNotifications();
+    if (!list) return;
+
+    if (staffNotificationError) {
+        list.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Notifications could not be loaded. Refresh the dashboard or try again.</p></div>`;
+        return;
+    }
+
+    if (!visibleNotifications.length) {
+        list.innerHTML = `<div class="empty-state"><i class="fas fa-bell-slash"></i><p>You have no available notifications.</p></div>`;
+        return;
+    }
+
+    list.innerHTML = visibleNotifications.map(notification => {
+        const title = escapeHTML(notification.title || "Staff notification");
+        const message = escapeHTML(notification.message || "");
+        const creator = escapeHTML(notification.creatorName || "NYSRP Management");
+        const creatorRank = escapeHTML(notification.creatorRank || "");
+        const priority = ["normal", "important", "urgent"].includes(notification.priority)
+            ? notification.priority
+            : "normal";
+        const createdAt = getRelativeNotificationTime(notification.createdAt);
+        const destination = ["overview", "logs", "shifts", "training", "loa"].includes(notification.destination)
+            ? notification.destination
+            : "";
+        const read = notification.read === true;
+        const destinationButton = destination
+            ? `<button class="btn-cancel notification-open-destination" type="button" data-notification-id="${escapeHTML(notification.id)}">Open destination</button>`
+            : "";
+
+        return `
+            <article class="notification-card ${read ? "is-read" : ""}" data-priority="${priority}">
+                <div class="notification-card-heading">
+                    <h4>${title}</h4>
+                    <span class="notification-priority">${priority}</span>
+                </div>
+                <p>${message}</p>
+                <div class="notification-card-meta">
+                    <span>From ${creator}${creatorRank ? ` · ${creatorRank}` : ""}</span>
+                    <time>${createdAt}</time>
+                    ${read ? `<span>Read</span>` : `<span>Unread</span>`}
+                </div>
+                <div class="notification-card-actions">
+                    ${read ? "" : `<button class="btn-cancel notification-mark-read" type="button" data-notification-id="${escapeHTML(notification.id)}">Mark as Read</button>`}
+                    ${destinationButton}
+                    <button class="btn-delete notification-delete" type="button" data-notification-id="${escapeHTML(notification.id)}">Delete</button>
+                </div>
+            </article>
+        `;
+    }).join("");
+
+    list.querySelectorAll(".notification-mark-read").forEach(button => {
+        button.addEventListener("click", () => markStaffNotificationRead(button.dataset.notificationId));
+    });
+    list.querySelectorAll(".notification-open-destination").forEach(button => {
+        button.addEventListener("click", () => openStaffNotificationDestination(button.dataset.notificationId));
+    });
+    list.querySelectorAll(".notification-delete").forEach(button => {
+        button.addEventListener("click", () => deleteStaffNotification(
+            button.dataset.notificationId,
+            auth.currentUser?.uid
+        ));
+    });
+
+}
+
+function renderManagedStaffNotifications() {
+    const list = document.getElementById("managedNotificationList");
+    if (!list || !isOwnerRank()) return;
+
+    if (!selectedNotificationRecipientUid) {
+        list.innerHTML = `<div class="empty-state"><i class="fas fa-users"></i><p>Select a staff member to manage their notifications.</p></div>`;
+        return;
+    }
+
+    const recipient = staffMembers.find(member => member.id === selectedNotificationRecipientUid);
+    const recipientName = escapeHTML(
+        recipient?.robloxUsername || recipient?.displayName || recipient?.username || recipient?.email || "Staff"
+    );
+    if (!managedStaffNotifications.length) {
+        list.innerHTML = `<div class="empty-state"><i class="fas fa-bell-slash"></i><p>${recipientName} has no notifications.</p></div>`;
+        return;
+    }
+
+    list.innerHTML = managedStaffNotifications.map(notification => {
+        const title = escapeHTML(notification.title || "Staff notification");
+        const message = escapeHTML(notification.message || "");
+        const creator = escapeHTML(notification.creatorName || "NYSRP Management");
+        const creatorRank = escapeHTML(notification.creatorRank || "");
+        const priority = ["normal", "important", "urgent"].includes(notification.priority)
+            ? notification.priority
+            : "normal";
+        const createdAt = getRelativeNotificationTime(notification.createdAt);
+        const read = notification.read === true;
+        return `
+            <article class="notification-card ${read ? "is-read" : ""}" data-priority="${priority}">
+                <div class="notification-card-heading">
+                    <h4>${title}</h4>
+                    <span class="notification-priority">${priority}</span>
+                </div>
+                <p>${message}</p>
+                <div class="notification-card-meta">
+                    <span>For ${recipientName}</span>
+                    <span>From ${creator}${creatorRank ? ` · ${creatorRank}` : ""}</span>
+                    <time>${createdAt}</time>
+                    <span>${read ? "Read" : "Unread"}</span>
+                </div>
+                <div class="notification-card-actions">
+                    <button class="btn-delete notification-delete" type="button" data-notification-id="${escapeHTML(notification.id)}">Delete</button>
+                </div>
+            </article>
+        `;
+    }).join("");
+
+    list.querySelectorAll(".notification-delete").forEach(button => {
+        button.addEventListener("click", () => deleteStaffNotification(
+            button.dataset.notificationId,
+            selectedNotificationRecipientUid
+        ));
+    });
+}
+
+function loadManagedStaffNotifications(recipientUid) {
+    if (unsubManagedNotifications) unsubManagedNotifications();
+    unsubManagedNotifications = null;
+    managedStaffNotifications = [];
+    selectedNotificationRecipientUid = "";
+
+    if (!isOwnerRank() || !staffMembers.some(member => member.id === recipientUid)) {
+        renderManagedStaffNotifications();
+        return;
+    }
+
+    selectedNotificationRecipientUid = recipientUid;
+    renderManagedStaffNotifications();
+    unsubManagedNotifications = onSnapshot(
+        query(
+            collection(db, "users", recipientUid, "notifications"),
+            where("recipientUid", "==", recipientUid)
+        ),
+        snapshot => {
+            managedStaffNotifications = snapshot.docs.map(notification => ({
+                id: notification.id,
+                ...notification.data()
+            })).sort((a, b) =>
+                (timestampToMillis(b.createdAt) || 0) - (timestampToMillis(a.createdAt) || 0)
+            );
+            renderManagedStaffNotifications();
+        },
+        error => {
+            managedStaffNotifications = [];
+            console.error("Unable to load managed staff notifications:", {
+                recipientUid,
+                firebaseErrorCode: error?.code || "unknown",
+                firebaseErrorMessage: error?.message || String(error)
+            });
+            renderManagedStaffNotifications();
+            showToast("Notification Error", `Unable to load staff notifications: ${error.message}`, "error");
+        }
+    );
+}
+
+async function deleteStaffNotification(notificationId, recipientUid) {
+    const currentUid = auth.currentUser?.uid;
+    if (!currentUid || !notificationId || !recipientUid) return;
+    if (recipientUid !== currentUid && !isOwnerRank()) {
+        showToast("Permission Denied", "You can only delete your own notifications.", "error");
+        return;
+    }
+
+    if (!(await showConfirmation({
+        title: "Delete Notification",
+        message: "Permanently delete this notification?",
+        variant: "danger",
+        confirmLabel: "Delete Notification"
+    }))) return;
+
+    try {
+        await deleteDoc(doc(db, "users", recipientUid, "notifications", notificationId));
+        if (recipientUid === currentUid) {
+            staffNotifications = staffNotifications.filter(notification => notification.id !== notificationId);
+            renderNotifications();
+        }
+        if (recipientUid === selectedNotificationRecipientUid) {
+            managedStaffNotifications = managedStaffNotifications.filter(notification => notification.id !== notificationId);
+            renderManagedStaffNotifications();
+        }
+        showToast("Notification Deleted", "The notification was permanently deleted.", "success");
+    } catch (error) {
+        console.error("Unable to delete staff notification:", {
+            recipientUid,
+            notificationId,
+            firebaseErrorCode: error?.code || "unknown",
+            firebaseErrorMessage: error?.message || String(error)
+        });
+        showToast("Notification Error", `Unable to delete notification: ${error.message}`, "error");
+    }
+}
+
+async function markStaffNotificationRead(notificationId) {
+    const uid = auth.currentUser?.uid;
+    if (!uid || !notificationId) return;
+    try {
+        await updateDoc(doc(db, "users", uid, "notifications", notificationId), {
+            read: true,
+            readAt: serverTimestamp()
+        });
+    } catch (error) {
+        console.error("Unable to mark staff notification as read:", error);
+        showToast("Notification Error", `Unable to mark notification as read: ${error.message}`, "error");
+    }
+}
+
+async function markAllStaffNotificationsRead() {
+    const uid = auth.currentUser?.uid;
+    const unread = getAvailableStaffNotifications().filter(notification => notification.read !== true);
+    if (!uid || !unread.length) return;
+
+    try {
+        for (let offset = 0; offset < unread.length; offset += 450) {
+            const batch = writeBatch(db);
+            unread.slice(offset, offset + 450).forEach(notification => {
+                batch.update(doc(db, "users", uid, "notifications", notification.id), {
+                    read: true,
+                    readAt: serverTimestamp()
+                });
+            });
+            await batch.commit();
+        }
+    } catch (error) {
+        console.error("Unable to mark all staff notifications as read:", error);
+        showToast("Notification Error", `Unable to mark all notifications as read: ${error.message}`, "error");
+    }
+}
+
+async function openStaffNotificationDestination(notificationId) {
+    const notification = staffNotifications.find(item => item.id === notificationId);
+    if (!notification) return;
+
+    if (notification.read !== true) await markStaffNotificationRead(notificationId);
+    const destinations = ["overview", "logs", "shifts", "training", "loa"];
+    if (destinations.includes(notification.destination)) {
+        switchPage(notification.destination);
+    }
+}
+
+async function releaseStoredStaffNotifications(showDutyToast = false) {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+
+    try {
+        const stored = await getDocs(query(
+            collection(db, "users", uid, "notifications"),
+            where("recipientUid", "==", uid),
+            where("available", "==", false)
+        ));
+        if (stored.empty) return;
+
+        for (let offset = 0; offset < stored.docs.length; offset += 450) {
+            const batch = writeBatch(db);
+            stored.docs.slice(offset, offset + 450).forEach(notification => {
+                batch.update(notification.ref, { available: true });
+            });
+            await batch.commit();
+        }
+
+        if (showDutyToast) {
+            const unreadCount = stored.docs.filter(notification => notification.data().read !== true).length;
+            if (unreadCount) {
+                showToast("You are now on duty", `${unreadCount} new staff ${unreadCount === 1 ? "notification is" : "notifications are"} available.`, "info");
+            }
+        }
+    } catch (error) {
+        console.error("Unable to release stored staff notifications:", error);
+        showToast("Notification Error", `Unable to load stored notifications: ${error.message}`, "error");
+    }
+}
+
+function renderNotificationRecipientOptions() {
+    const select = document.getElementById("staffNotificationRecipients");
+    if (!select) return;
+    const previousSelection = new Set(Array.from(select.selectedOptions || [], option => option.value));
+    select.innerHTML = staffMembers.map(member => {
+        const name = member.robloxUsername || member.displayName || member.username || member.email || "Staff";
+        const rank = formatRankLabel(member.rank || "Staff");
+        return `<option value="${escapeHTML(member.id)}">${escapeHTML(name)} · ${escapeHTML(rank)}</option>`;
+    }).join("");
+    Array.from(select.options).forEach(option => {
+        option.selected = previousSelection.has(option.value);
+    });
+
+    const ownerSelect = document.getElementById("ownerNotificationRecipient");
+    if (!ownerSelect) return;
+    const currentOwnerSelection = selectedNotificationRecipientUid;
+    ownerSelect.innerHTML = `<option value="">Select a staff member</option>` + staffMembers.map(member => {
+        const name = member.robloxUsername || member.displayName || member.username || member.email || "Staff";
+        const rank = formatRankLabel(member.rank || "Staff");
+        return `<option value="${escapeHTML(member.id)}">${escapeHTML(name)} · ${escapeHTML(rank)}</option>`;
+    }).join("");
+    ownerSelect.value = staffMembers.some(member => member.id === currentOwnerSelection)
+        ? currentOwnerSelection
+        : "";
+    if (!ownerSelect.value && currentOwnerSelection) loadManagedStaffNotifications("");
+}
+
+function getOnDutyStaffUids() {
+    return new Set(shifts
+        .filter(shift => shift.staffUid && (shift.status === "active" || shift.status === "break"))
+        .map(shift => shift.staffUid));
+}
+
+async function sendStaffNotification(event) {
+    event.preventDefault();
+    if (!auth.currentUser || !canManagePresets(staffRank)) {
+        showToast("Permission Denied", "Only Management, Director, Co Owner, and Owner can send staff notifications.", "error");
+        return;
+    }
+    if (!staffMembersLoaded || !shiftsLoaded) {
+        showToast("Please Wait", "The staff list and current shift statuses are still loading.", "info");
+        return;
+    }
+
+    const title = document.getElementById("staffNotificationTitle").value.trim();
+    const message = document.getElementById("staffNotificationMessage").value.trim();
+    const priority = document.getElementById("staffNotificationPriority").value;
+    const audience = document.getElementById("staffNotificationAudience").value;
+    const destination = document.getElementById("staffNotificationDestination").value;
+    const selectedUids = Array.from(
+        document.getElementById("staffNotificationRecipients").selectedOptions || [],
+        option => option.value
+    );
+    const onDutyUids = getOnDutyStaffUids();
+    const recipients = staffMembers.filter(member => {
+        if (audience === "on-duty") return onDutyUids.has(member.id);
+        if (audience === "selected") return selectedUids.includes(member.id);
+        return true;
+    });
+
+    if (!title || !message) {
+        showToast("Validation Error", "Enter both a notification title and message.", "warning");
+        return;
+    }
+    if (audience === "selected" && !selectedUids.length) {
+        showToast("Select Recipients", "Select at least one staff member.", "warning");
+        return;
+    }
+    if (!recipients.length) {
+        showToast("No Recipients", "There are no staff members in the selected recipient group.", "warning");
+        return;
+    }
+
+    const submitButton = document.getElementById("staffNotificationSubmitBtn");
+    submitButton.disabled = true;
+    const notificationWriteContext = {
+        projectId: app.options.projectId,
+        path: "users/{recipientUid}/notifications/{notificationId}",
+        actorUid: auth.currentUser.uid,
+        actorRank: staffRank,
+        userDocumentRank: currentUserDoc?.rank || null,
+        clientManagementAllowed: canManagePresets(staffRank),
+        recipientCount: recipients.length,
+        documentFields: [
+            "recipientUid", "title", "message", "type", "createdAt", "read",
+            "available", "priority", "destination", "creatorUid", "creatorName",
+            "creatorRank"
+        ]
+    };
+    try {
+        const currentUid = auth.currentUser.uid;
+        const onDutySet = getOnDutyStaffUids();
+        for (let offset = 0; offset < recipients.length; offset += 450) {
+            const batch = writeBatch(db);
+            recipients.slice(offset, offset + 450).forEach(recipient => {
+                const notificationRef = doc(collection(db, "users", recipient.id, "notifications"));
+                batch.set(notificationRef, {
+                    recipientUid: recipient.id,
+                    title,
+                    message,
+                    type: "staff_notification",
+                    createdAt: serverTimestamp(),
+                    read: false,
+                    available: onDutySet.has(recipient.id),
+                    priority,
+                    destination,
+                    creatorUid: currentUid,
+                    creatorName: currentStaff || "Management",
+                    creatorRank: formatRankLabel(staffRank)
+                });
+            });
+            await batch.commit();
+        }
+
+        document.getElementById("staffNotificationForm").reset();
+        document.getElementById("staffNotificationRecipientsGroup").classList.add("hidden");
+        document.getElementById("staffNotificationModal").classList.remove("visible");
+        showToast("Notification Sent", `Notification delivered to ${recipients.length} staff ${recipients.length === 1 ? "member" : "members"}.`, "success");
+    } catch (error) {
+        console.error("Unable to send staff notification:", {
+            ...notificationWriteContext,
+            firebaseErrorName: error?.name || "UnknownError",
+            firebaseErrorCode: error?.code || "unknown",
+            firebaseErrorMessage: error?.message || String(error)
+        });
+        showToast("Notification Error", `Unable to send notification: ${error.message}`, "error");
+    } finally {
+        submitButton.disabled = false;
+    }
+}
+
 function renderOverview() {
+    renderPersonalDashboard();
+    renderStaffStatistics();
+
     const counts = { warn: 0, ban: 0, kick: 0, bolo: 0, note: 0 };
     logs.forEach(log => {
         if (log.type === "bolo") {
@@ -2301,13 +3105,20 @@ function escapeHTML(str) {
     );
 }
 
+function getRobloxAvatarHtml(avatarUrl, fallbackText = "") {
+    const safeUrl = typeof avatarUrl === 'string' ? avatarUrl.trim() : "";
+    if (safeUrl) {
+        return `<img src="${escapeHTML(safeUrl)}" alt="" class="roblox-avatar-sm" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'; this.nextElementSibling?.classList.remove('hidden');">` +
+            `<span class="roblox-avatar-sm roblox-avatar-fallback hidden"><i class="fas fa-user"></i>${fallbackText ? `<span class="sr-only">${escapeHTML(fallbackText)}</span>` : ""}</span>`;
+    }
+    return `<span class="roblox-avatar-sm roblox-avatar-fallback"><i class="fas fa-user"></i>${fallbackText ? `<span class="sr-only">${escapeHTML(fallbackText)}</span>` : ""}</span>`;
+}
+
 function renderRobloxIdentity(log, includeId = false) {
     const username = escapeHTML(log.username || "Unknown");
     const displayName = escapeHTML(log.robloxDisplayName || log.username || "Unknown");
     const userId = escapeHTML(log.robloxId || "");
-    const avatar = log.robloxAvatarUrl
-        ? `<img src="${escapeHTML(log.robloxAvatarUrl)}" alt="" class="roblox-avatar-sm" loading="lazy" referrerpolicy="no-referrer">`
-        : `<span class="roblox-avatar-sm roblox-avatar-fallback"><i class="fas fa-user"></i></span>`;
+    const avatar = getRobloxAvatarHtml(log.robloxAvatarUrl, log.username || "Player");
     const meta = includeId && userId ? `${displayName} | ID: ${userId}` : displayName;
 
     return `
@@ -2929,7 +3740,6 @@ function calculateShiftMetrics(shift, nowMs = Date.now()) {
         return { workingSeconds: 0, breakSeconds: 0, totalSeconds: 0 };
     }
 
-    // Use startTime, or fall back to createdAt if missing
     const timeValue = shift.startTime || shift.createdAt;
     if (!timeValue) {
         return { workingSeconds: 0, breakSeconds: 0, totalSeconds: 0 };
@@ -2939,6 +3749,7 @@ function calculateShiftMetrics(shift, nowMs = Date.now()) {
     if (startMs === null) {
         return { workingSeconds: 0, breakSeconds: 0, totalSeconds: 0 };
     }
+
     const endMs = timestampToMillis(shift.endTime) ?? nowMs;
     const totalMs = Math.max(0, endMs - startMs);
 
@@ -2960,8 +3771,10 @@ function calculateShiftMetrics(shift, nowMs = Date.now()) {
                 }
             }
         }
-    } else if (typeof shift.breakDurationSeconds === 'number') {
-        breakMs = shift.breakDurationSeconds * 1000;
+    }
+
+    if (!Array.isArray(shift.breaks) && typeof shift.breakDurationSeconds === 'number') {
+        breakMs = Math.max(0, shift.breakDurationSeconds * 1000);
     }
 
     const workingMs = Math.max(0, totalMs - breakMs);
@@ -4052,35 +4865,45 @@ async function syncErlcJoins(apiJoins) {
     if (!auth.currentUser || !Array.isArray(apiJoins) || apiJoins.length === 0) return;
 
     for (const join of apiJoins.slice(0, 20)) {
-        const alreadyRecorded = erlcPlayerSessions.some(s => 
-            s.timestamp === join.timestamp && 
-            s.username === join.username && 
-            s.join === join.join
-        );
+        const normalizedTimestamp = Number(join.timestamp || join.createdAt || Date.now() / 1000);
+        const normalizedUsername = String(join.username || "Unknown").trim() || "Unknown";
+        const normalizedRobloxUid = join.robloxUid ?? join.robloxId ?? null;
+        const normalizedJoin = join.join === true || join.event === "joined" || join.join === "true";
+        const sameSessionKey = `${normalizedUsername}|${String(normalizedRobloxUid ?? "")}|${Math.floor(Number(normalizedTimestamp))}|${normalizedJoin ? "join" : "leave"}`;
 
-        if (!alreadyRecorded) {
-            try {
-                await addDoc(collection(db, "erlc_player_sessions"), {
-                    username: join.username || "Unknown",
-                    robloxUid: join.robloxUid || null,
-                    join: Boolean(join.join),
-                    event: join.join ? "joined" : "left",
-                    timestamp: join.timestamp || Math.floor(Date.now() / 1000),
-                    serverId: erlcServerInfo?.server?.JoinKey || "NYSRP",
-                    createdAt: new Date().toISOString()
-                });
+        const alreadyRecorded = erlcPlayerSessions.some(s => {
+            const sessionTimestamp = Number(s.timestamp || s.createdAt || 0);
+            const sessionUsername = String(s.username || "Unknown").trim() || "Unknown";
+            const sessionRobloxUid = s.robloxUid ?? s.robloxId ?? null;
+            const sessionJoin = Boolean(s.join || s.event === "joined");
+            return sessionTimestamp === Math.floor(Number(normalizedTimestamp)) &&
+                sessionUsername === normalizedUsername &&
+                String(sessionRobloxUid ?? "") === String(normalizedRobloxUid ?? "") &&
+                sessionJoin === normalizedJoin;
+        });
 
-                // Also record to erlc_events
-                await addDoc(collection(db, "erlc_events"), {
-                    eventType: join.join ? "player_joined" : "player_left",
-                    username: join.username,
-                    robloxUid: join.robloxUid,
-                    timestamp: join.timestamp || Math.floor(Date.now() / 1000),
-                    createdAt: new Date().toISOString()
-                });
-            } catch (err) {
-                // Ignore individual sync errors
-            }
+        if (alreadyRecorded) continue;
+
+        try {
+            await addDoc(collection(db, "erlc_player_sessions"), {
+                username: normalizedUsername,
+                robloxUid: normalizedRobloxUid,
+                join: normalizedJoin,
+                event: normalizedJoin ? "joined" : "left",
+                timestamp: Number(normalizedTimestamp),
+                serverId: erlcServerInfo?.server?.JoinKey || "NYSRP",
+                createdAt: new Date().toISOString()
+            });
+
+            await addDoc(collection(db, "erlc_events"), {
+                eventType: normalizedJoin ? "player_joined" : "player_left",
+                username: normalizedUsername,
+                robloxUid: normalizedRobloxUid,
+                timestamp: Number(normalizedTimestamp),
+                createdAt: new Date().toISOString()
+            });
+        } catch (err) {
+            // Ignore individual sync errors
         }
     }
 }

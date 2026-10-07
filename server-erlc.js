@@ -42,6 +42,9 @@ function sanitizeSecrets(value) {
 
   // Mask Webhook URLs
   const webhookUrls = [
+    process.env.WEBSITE_SYSTEM_LOG,
+    process.env.NYSRP_AUDIT_WEBHOOK_URL,
+    process.env.NYSRP_OFF_DUTY_WEBHOOK_URL,
     process.env.NYSRP_ERROR_WEBHOOK_URL,
     process.env.ERROR_WEBHOOK_URL,
     process.env.DISCORD_SHIFT_WEBHOOK_URL
@@ -95,9 +98,9 @@ function isDuplicateAlert(fingerprint) {
 
 // Server-side Discord Off-Duty Command Alert Webhook Dispatcher
 async function sendOffDutyCommandAlert(data) {
-  const webhookUrl = process.env.NYSRP_OFF_DUTY_WEBHOOK_URL;
+  const webhookUrl = process.env.WEBSITE_SYSTEM_LOG;
   if (!webhookUrl) {
-    console.warn('[Off-Duty Alert] NYSRP_OFF_DUTY_WEBHOOK_URL not configured on server.');
+    console.warn('[Off-Duty Alert] WEBSITE_SYSTEM_LOG not configured on server.');
     return false;
   }
 
@@ -168,7 +171,7 @@ async function sendOffDutyCommandAlert(data) {
 
 // Server-side Discord Error Reporting Webhook Dispatcher
 async function sendDiscordErrorReport(data) {
-  const webhookUrl = process.env.NYSRP_ERROR_WEBHOOK_URL || process.env.ERROR_WEBHOOK_URL || process.env.DISCORD_SHIFT_WEBHOOK_URL;
+  const webhookUrl = process.env.WEBSITE_SYSTEM_LOG || process.env.NYSRP_ERROR_WEBHOOK_URL || process.env.ERROR_WEBHOOK_URL || process.env.DISCORD_SHIFT_WEBHOOK_URL;
   if (!webhookUrl) {
     console.error('[Error Reporting] No error-reporting Discord webhook is configured on the server.');
     return false;

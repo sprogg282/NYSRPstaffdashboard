@@ -1,16 +1,7 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // ==========================================
-    // PROTECTED OWNER ACCOUNT
-    // ==========================================
-    // The Owner profile cannot be demoted or deleted by staff management writes
-    function isProtectedOwnerAccount(userId) {
-      let userPath = /databases/$(database)/documents/users/$(userId);
-      return exists(userPath)
-        && get(userPath).data.email == 'sprog28@hotmail.com';
-    }
 
     // ==========================================
     // AUTHENTICATION & ROLE HELPERS
@@ -21,306 +12,428 @@ service cloud.firestore {
     }
 
     function hasUserDoc() {
-      return isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
     function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return get(
+        /databases/$(database)/documents/users/$(request.auth.uid)
+      ).data;
     }
 
     function getUserRank() {
-      return hasUserDoc() && ('rank' in getUserData()) ? getUserData().rank : 'Junior Moderator';
+      return hasUserDoc() && ('rank' in getUserData())
+        ? getUserData().rank
+        : null;
     }
 
-    function isRank(rank, values) {
-      return rank in values;
+    function isNotificationOwner() {
+      return hasUserDoc()
+        && ('rank' in getUserData())
+        && getUserRank() is string
+        && getUserRank().trim().lower() == 'owner';
     }
 
-    function isJuniorModeratorRank(rank) {
-      return isRank(rank, ['Junior Moderator', 'junior moderator', 'staff', 'Staff']);
-    }
+    // ==========================================
+    // OWNER / CO-OWNER
+    // ==========================================
 
-    function isModeratorRank(rank) {
-      return isRank(rank, ['Moderator', 'moderator', 'mod']);
-    }
-
-    function isJuniorAdministratorRank(rank) {
-      return isRank(rank, ['Junior Administrator', 'junior administrator']);
-    }
-
-    function isAdministratorRank(rank) {
-      return isRank(rank, ['Administrator', 'administrator', 'admin']);
-    }
-
-    function isOwnerOrCoOwnerRank(rank) {
-      return isRank(rank, ['Owner', 'Co Owner', 'owner', 'co owner', 'co-owner']);
-    }
-
-    function isManagementOrHigherRank(rank) {
-      return isRank(rank, [
-        'Owner', 'Co Owner', 'Director', 'Management',
-        'owner', 'co owner', 'co-owner', 'director', 'management'
-      ]);
-    }
-
-    function canHandleBoloRank(rank) {
-      return isRank(rank, [
-        'Owner', 'Co Owner', 'Director', 'Management',
-        'owner', 'co owner', 'co-owner', 'director', 'management'
-      ]);
-    }
-
-    function canManageLoaRank(rank) {
-      return isRank(rank, [
-        'Owner', 'Co Owner', 'Director', 'Management', 'Internal Affairs',
-        'owner', 'co owner', 'co-owner', 'director', 'management', 'internal affairs'
-      ]);
-    }
-
-    // Owner and Co-Owner (Ranks 8 & 7)
     function isOwnerOrCoOwner() {
-      return isAuthenticated() && hasUserDoc() && isOwnerOrCoOwnerRank(getUserRank());
+      return isAuthenticated()
+        && hasUserDoc()
+        && ('rank' in getUserData())
+        && getUserRank() in [
+          'owner',
+          'co owner',
+          'Owner',
+          'Co Owner'
+        ];
     }
 
-    // Management, Director, Co-Owner, Owner (Ranks 5, 6, 7, 8)
+    // ==========================================
+    // MANAGEMENT+
+    // ==========================================
+
     function isManagementOrHigher() {
-      return isAuthenticated() && hasUserDoc() && isManagementOrHigherRank(getUserRank());
+      return isAuthenticated()
+        && hasUserDoc()
+        && ('rank' in getUserData())
+        && getUserRank() in [
+          'owner',
+          'co owner',
+          'director',
+          'management',
+          'Owner',
+          'Co Owner',
+          'Director',
+          'Management'
+        ];
     }
 
-    // LOA Reviewers: Internal Affairs, Management, Director, Co-Owner, Owner (Ranks 4, 5, 6, 7, 8)
+    // ==========================================
+    // BAN BOLO RESOLUTION
+    // ==========================================
+    //
+    // Allows ONLY Owner, Co Owner, Director and
+    // Management to resolve an existing Ban BOLO.
+    //
+    // This does NOT give these ranks unrestricted
+    // log update permissions.
+    //
+    // Lower-ranking staff can still CREATE/SUBMIT
+    // BOLO logs through the existing create rule.
+    //
+    // ==========================================
+
+    function isBoloResolutionUpdate() {
+      return isAuthenticated()
+        && hasUserDoc()
+        && ('rank' in getUserData())
+        && getUserRank() in [
+          'owner',
+          'co owner',
+          'director',
+          'management',
+          'Owner',
+          'Co Owner',
+          'Director',
+          'Management'
+        ]
+        && resource.data.type == 'bolo'
+        && resource.data.boloStatus in [
+          'pending',
+          'active'
+        ]
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'boloStatus',
+          'approvedBy',
+          'approvedAt',
+          'approvalReason',
+          'finalOutcome'
+        ]);
+    }
+
+    // ==========================================
+    // LOA REVIEWERS
+    // ==========================================
+
     function canManageLoa() {
-      return isAuthenticated() && hasUserDoc() && canManageLoaRank(getUserRank());
-    }
-
-    function isAllowedCanonicalRank(rank) {
-      return rank in [
-        'Junior Moderator', 'Moderator', 'Junior Administrator', 'Administrator',
-        'Staff Supervisor', 'Internal Affairs', 'Management', 'Director', 'Co Owner', 'Owner'
-      ];
+      return isAuthenticated()
+        && hasUserDoc()
+        && ('rank' in getUserData())
+        && getUserRank() in [
+          'owner',
+          'co owner',
+          'director',
+          'management',
+          'internal affairs',
+          'Owner',
+          'Co Owner',
+          'Director',
+          'Management',
+          'Internal Affairs'
+        ];
     }
 
     // ==========================================
     // 1. USERS COLLECTION
     // ==========================================
+
     match /users/{userId} {
+
       allow read: if isAuthenticated();
 
-      // Profile creation: Users can create their own initial profile, or Owners can create accounts
       allow create: if isAuthenticated() && (
-        isOwnerOrCoOwner() ||
-        (request.auth.uid == userId && (
-          !('rank' in request.resource.data) ||
-          isJuniorModeratorRank(request.resource.data.rank) ||
-          isModeratorRank(request.resource.data.rank)
-        ))
-      );
-
-      // Updates: Owners have full edit access; regular users CANNOT alter rank, email, or createdAt
-      // PROTECTION: The protected Owner account's rank field cannot be changed by anyone (including Owners)
-      allow update: if isAuthenticated() && (
-        (isOwnerOrCoOwner() && !isProtectedOwnerAccount(userId)) ||
-        (request.auth.uid == userId && (
-          (!('rank' in request.resource.data) || request.resource.data.rank == resource.data.rank) &&
-          (!('email' in request.resource.data) || !('email' in resource.data) || request.resource.data.email == resource.data.email) &&
-          (!('createdAt' in request.resource.data) || !('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt)
-        ))
-      );
-
-      // Only Owner and Co-Owner can delete user records, except the protected Owner profile
-      allow delete: if isOwnerOrCoOwner() && !isProtectedOwnerAccount(userId);
-    }
-
-    // BOLO Reviewers: Owner, Co-Owner, Director, Management
-    function canHandleBolo() {
-      return isAuthenticated() && hasUserDoc() && canHandleBoloRank(getUserRank());
-    }
-
-    function isTrainingBoloCreate() {
-      return request.resource.data.type == "bolo"
-        && request.resource.data.trainingBolo == true
-        && isJuniorAdministratorRank(getUserRank())
-        && ('supervisorUid' in request.resource.data)
-        && exists(/databases/$(database)/documents/users/$(request.resource.data.supervisorUid))
-        && canHandleBoloRank(get(/databases/$(database)/documents/users/$(request.resource.data.supervisorUid)).data.rank);
-    }
-
-    function isNormalBoloCreate() {
-      return request.resource.data.type == "bolo"
-        && (!('trainingBolo' in request.resource.data) || request.resource.data.trainingBolo == false)
-        && canHandleBolo();
-    }
-
-    function isBoloSubmission() {
-      return request.resource.data.type == "bolo"
-        && isAuthenticated();
-    }
-
-    function isBoloResolutionUpdate() {
-      return canHandleBolo()
-        && resource.data.type == "bolo"
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-             'boloStatus', 'approvedBy', 'approvedAt', 'approvalReason', 'finalOutcome'
-           ]);
-    }
-
-    // ==========================================
-    // 2. ACTION & AUDIT LOGS COLLECTION
-    // ==========================================
-    match /logs/{logId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && (
-        request.resource.data.type != "bolo" ||
-        isBoloSubmission() ||
-        isNormalBoloCreate() ||
-        isTrainingBoloCreate()
-      );
-      // Owner/Co-Owner retain full update and delete rights
-      allow update, delete: if isOwnerOrCoOwner();
-      // BOLO reviewers can update ONLY BOLO resolution fields on BOLO documents
-      allow update: if isBoloResolutionUpdate();
-    }
-
-    // ==========================================
-    // 3. MESSAGE PRESETS COLLECTION
-    // ==========================================
-    match /presets/{presetId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isManagementOrHigher();
-    }
-
-    // ==========================================
-    // 4. MANAGE REASONS COLLECTION
-    // ==========================================
-    match /reasons/{reasonId} {
-      // All authenticated staff need to read reasons for dropdown selectors
-      allow read: if isAuthenticated();
-      // Only Owner and Co-Owner can add, edit, or delete reason templates
-      allow create, update, delete: if isOwnerOrCoOwner();
-    }
-
-    // ==========================================
-    // 5. LOA REQUESTS COLLECTION
-    // ==========================================
-    match /loaRequests/{requestId} {
-      allow read: if isAuthenticated();
-
-      // Staff can ONLY submit requests for themselves in a pending state
-      allow create: if isAuthenticated() && (
-        request.resource.data.staffUid == request.auth.uid &&
-        request.resource.data.status == "pending" &&
-        (!('reviewerUid' in request.resource.data) || request.resource.data.reviewerUid == "") &&
-        (!('reviewedBy' in request.resource.data) || request.resource.data.reviewedBy == "")
-      );
-
-      // Updates:
-      // - Leadership can approve/deny and set review metadata
-      // - Creators can update details ONLY while pending, and CANNOT self-approve or forge review data
-      allow update: if isAuthenticated() && (
-        canManageLoa() ||
+        isOwnerOrCoOwner()
+        ||
         (
-          resource.data.staffUid == request.auth.uid &&
-          resource.data.status == "pending" &&
-          request.resource.data.staffUid == resource.data.staffUid &&
-          request.resource.data.status == "pending" &&
-          (!('reviewerUid' in request.resource.data) || request.resource.data.reviewerUid == "") &&
-          (!('reviewedBy' in request.resource.data) || request.resource.data.reviewedBy == "")
-        )
-      );
-
-      // Only Owner/Co-Owner or the creator (while pending) can delete an LOA
-      allow delete: if isAuthenticated() && (
-        isOwnerOrCoOwner() ||
-        (resource.data.staffUid == request.auth.uid && resource.data.status == "pending")
-      );
-    }
-
-    // ==========================================
-    // 6. NYSRP STAFF SHIFTS COLLECTION
-    // ==========================================
-    match /shifts/{shiftId} {
-      allow read: if isAuthenticated();
-
-      // Staff can ONLY create a shift with their own authenticated UID
-      allow create: if isAuthenticated() && (
-        request.resource.data.staffUid == request.auth.uid &&
-        request.resource.data.status == 'active' &&
-        ('endTime' in request.resource.data) &&
-        request.resource.data.endTime == null
-      );
-
-      // Updates:
-      // - Management+ can manage any shift record
-      // - Regular staff can ONLY update their OWN shift and CANNOT tamper with immutable identity fields
-      allow update: if isAuthenticated() && (
-        isManagementOrHigher() ||
-        (
-          resource.data.staffUid == request.auth.uid &&
-          request.resource.data.staffUid == resource.data.staffUid &&
-          request.resource.data.staffRank == resource.data.staffRank &&
-          request.resource.data.startTime == resource.data.startTime &&
-          request.resource.data.createdAt == resource.data.createdAt &&
+          request.auth.uid == userId
+          &&
           (
-            (resource.data.status == 'active' && request.resource.data.status in ['break', 'completed']) ||
-            (resource.data.status == 'break' && request.resource.data.status in ['active', 'completed'])
+            !('rank' in request.resource.data)
+            ||
+            request.resource.data.rank in [
+              'staff',
+              'moderator',
+              'Staff',
+              'Moderator'
+            ]
           )
         )
       );
 
-      // Only Owner and Co-Owner can delete shift history
+      allow update: if isAuthenticated() && (
+        isOwnerOrCoOwner()
+        ||
+        (
+          request.auth.uid == userId
+          &&
+          (
+            !('rank' in request.resource.data)
+            ||
+            request.resource.data.rank == resource.data.rank
+          )
+          &&
+          (
+            !('email' in request.resource.data)
+            ||
+            request.resource.data.email == resource.data.email
+          )
+          &&
+          (
+            !('createdAt' in request.resource.data)
+            ||
+            request.resource.data.createdAt == resource.data.createdAt
+          )
+        )
+      );
+
+      allow delete: if isOwnerOrCoOwner();
+
+      match /notifications/{notificationId} {
+        allow read: if isAuthenticated()
+          && resource.data.recipientUid == userId
+          && (
+            request.auth.uid == userId
+            || isNotificationOwner()
+          );
+
+        allow create: if isManagementOrHigher()
+          && exists(/databases/$(database)/documents/users/$(userId))
+          && request.resource.data.keys().hasAll([
+            'recipientUid', 'title', 'message', 'type', 'createdAt', 'read',
+            'available', 'priority', 'destination', 'creatorUid', 'creatorName',
+            'creatorRank'
+          ])
+          && request.resource.data.keys().hasOnly([
+            'recipientUid', 'title', 'message', 'type', 'createdAt', 'read',
+            'available', 'priority', 'destination', 'creatorUid', 'creatorName',
+            'creatorRank'
+          ])
+          && request.resource.data.recipientUid == userId
+          && request.resource.data.creatorUid == request.auth.uid
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 100
+          && request.resource.data.message is string
+          && request.resource.data.message.size() > 0
+          && request.resource.data.message.size() <= 1000
+          && request.resource.data.type in ['staff_notification', 'staff_update']
+          && request.resource.data.createdAt is timestamp
+          && request.resource.data.read == false
+          && request.resource.data.available is bool
+          && request.resource.data.priority in ['normal', 'important', 'urgent']
+          && request.resource.data.destination is string
+          && request.resource.data.creatorName is string
+          && request.resource.data.creatorRank is string;
+
+        allow update: if isAuthenticated()
+          && request.auth.uid == userId
+          && resource.data.recipientUid == userId
+          && (
+            (
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt'])
+              && resource.data.read == false
+              && request.resource.data.read == true
+              && request.resource.data.readAt is timestamp
+            ) ||
+            (
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly(['available'])
+              && resource.data.available == false
+              && request.resource.data.available == true
+            )
+          );
+
+        allow delete: if isAuthenticated()
+          && resource.data.recipientUid == userId
+          && (
+            request.auth.uid == userId
+            || isNotificationOwner()
+          );
+      }
+    }
+
+    // ==========================================
+    // 2. ACTION & AUDIT LOGS
+    // ==========================================
+
+    match /logs/{logId} {
+
+      // Authenticated users can read logs.
+      allow read: if isAuthenticated();
+
+      // Keep existing BOLO/log submission behaviour.
+      // Lower-ranking staff can still submit BOLOs.
+      allow create: if isAuthenticated();
+
+      // Owner/Co-Owner retain full log update permission.
+      //
+      // Director/Management can ONLY update an existing
+      // BOLO through the restricted resolution rule above.
+      allow update: if isOwnerOrCoOwner()
+        || isBoloResolutionUpdate();
+
+      // Only Owner/Co-Owner can delete logs.
       allow delete: if isOwnerOrCoOwner();
     }
 
     // ==========================================
-    // 7. ER:LC IN-GAME PLAYERS SNAPSHOT
+    // 3. MESSAGE PRESETS
     // ==========================================
-    match /erlc_players/{playerId} {
-      allow read, write: if isAuthenticated();
+
+    match /presets/{presetId} {
+
+      allow read: if isAuthenticated();
+
+      allow create, update, delete: if isManagementOrHigher();
+    }
+
+    // ==========================================
+    // 4. MANAGE REASONS
+    // ==========================================
+
+    match /reasons/{reasonId} {
+
+      allow read: if isAuthenticated();
+
+      allow create, update, delete: if isOwnerOrCoOwner();
+    }
+
+    // ==========================================
+    // 5. LOA REQUESTS
+    // ==========================================
+
+    match /loaRequests/{requestId} {
+
+      allow read: if isAuthenticated();
+
+      allow create: if isAuthenticated() && (
+        request.resource.data.staffUid == request.auth.uid
+        &&
+        request.resource.data.status == "pending"
+        &&
+        (
+          !('reviewerUid' in request.resource.data)
+          ||
+          request.resource.data.reviewerUid == ""
+        )
+        &&
+        (
+          !('reviewedBy' in request.resource.data)
+          ||
+          request.resource.data.reviewedBy == ""
+        )
+      );
+
+      allow update: if isAuthenticated() && (
+        canManageLoa()
+        ||
+        (
+          resource.data.staffUid == request.auth.uid
+          &&
+          resource.data.status == "pending"
+          &&
+          request.resource.data.staffUid == resource.data.staffUid
+          &&
+          request.resource.data.status == "pending"
+          &&
+          (
+            !('reviewerUid' in request.resource.data)
+            ||
+            request.resource.data.reviewerUid == ""
+          )
+          &&
+          (
+            !('reviewedBy' in request.resource.data)
+            ||
+            request.resource.data.reviewedBy == ""
+          )
+        )
+      );
+
+      allow delete: if isAuthenticated() && (
+        isOwnerOrCoOwner()
+        ||
+        (
+          resource.data.staffUid == request.auth.uid
+          &&
+          resource.data.status == "pending"
+        )
+      );
+    }
+
+    // ==========================================
+    // 6. NYSRP STAFF SHIFTS
+    // ==========================================
+
+    match /shifts/{shiftId} {
+
+      allow read: if isAuthenticated();
+
+      allow create: if isAuthenticated() && (
+        request.resource.data.staffUid == request.auth.uid
+        &&
+        request.resource.data.status in [
+          'active',
+          'break'
+        ]
+      );
+
+      allow update: if isAuthenticated() && (
+        isManagementOrHigher()
+        ||
+        (
+          resource.data.staffUid == request.auth.uid
+          &&
+          request.resource.data.staffUid == resource.data.staffUid
+          &&
+          request.resource.data.staffRank == resource.data.staffRank
+          &&
+          request.resource.data.startTime == resource.data.startTime
+          &&
+          request.resource.data.createdAt == resource.data.createdAt
+          &&
+          request.resource.data.status in [
+            'active',
+            'break',
+            'completed'
+          ]
+        )
+      );
+
       allow delete: if isOwnerOrCoOwner();
     }
 
     // ==========================================
-    // 8. ER:LC PLAYER SESSIONS
+    // ADDITIONAL ER:LC COLLECTIONS
     // ==========================================
+
     match /erlc_player_sessions/{sessionId} {
       allow read, write: if isAuthenticated();
       allow delete: if isOwnerOrCoOwner();
     }
 
-    // ==========================================
-    // 9. ER:LC KILLS LOGS
-    // ==========================================
     match /erlc_kills/{killId} {
       allow read, create: if isAuthenticated();
       allow update, delete: if isOwnerOrCoOwner();
     }
 
-    // ==========================================
-    // 10. ER:LC COMMAND LOGS
-    // ==========================================
     match /erlc_commands/{commandId} {
       allow read, create: if isAuthenticated();
       allow update, delete: if isOwnerOrCoOwner();
     }
 
-    // ==========================================
-    // 11. ER:LC SYSTEM EVENTS
-    // ==========================================
     match /erlc_events/{eventId} {
       allow read, create: if isAuthenticated();
       allow update, delete: if isOwnerOrCoOwner();
     }
 
-    // ==========================================
-    // 12. ER:LC MOD CALLS
-    // ==========================================
     match /erlc_mod_calls/{callId} {
       allow read, create, update: if isAuthenticated();
       allow delete: if isOwnerOrCoOwner();
     }
 
-    // ==========================================
-    // 13. ER:LC OFF-DUTY COMMAND ALERTS
-    // ==========================================
     match /erlc_off_duty_commands/{alertId} {
       allow read, create: if isAuthenticated();
       allow update, delete: if isOwnerOrCoOwner();
