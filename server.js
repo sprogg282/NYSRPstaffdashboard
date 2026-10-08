@@ -1,7 +1,33 @@
 const http = require("http");
+const fs = require("fs");
+const path = require("path");
 const { handleErlcApiRequest } = require("./server-erlc");
+const discordAuditHandler = require("./api/discord/audit");
 
 const PORT = process.env.PORT || 3001;
+
+function loadLocalEnv() {
+  const envPath = path.join(process.cwd(), ".env.local");
+  if (!fs.existsSync(envPath)) return;
+
+  const contents = fs.readFileSync(envPath, "utf8");
+  for (const line of contents.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const match = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+    if (!match) continue;
+    const [, key, rawValue] = match;
+    if (process.env[key]) continue;
+
+    let value = rawValue.trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    process.env[key] = value;
+  }
+}
+
+loadLocalEnv();
 
 function sendJson(res, status, payload) {
   res.writeHead(status, {
@@ -32,6 +58,24 @@ function readJson(req) {
     });
     req.on("error", reject);
   });
+}
+
+function createNodeApiResponse(res) {
+  return {
+    setHeader: res.setHeader.bind(res),
+    status(statusCode) {
+      res.statusCode = statusCode;
+      return this;
+    },
+    json(payload) {
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "Content-Type,Accept");
+      res.end(JSON.stringify(payload));
+      return this;
+    }
+  };
 }
 
 async function proxyJson(res, url, options = {}) {
@@ -217,6 +261,23 @@ const server = http.createServer(async (req, res) => {
     } catch (error) {
       console.error("[Discord Webhook Server Error]", error?.name || "Error");
       return sendJson(res, 500, { error: "Internal server error processing webhook" });
+    }
+  }
+
+  // Discord Moderation Audit Webhook Dispatcher
+  if (url.pathname === "/api/discord/audit") {
+    if (req.method !== "POST") {
+      res.setHeader("Allow", "POST");
+      return sendJson(res, 405, { error: "Method not allowed" });
+    }
+
+    try {
+      req.body = await readJson(req);
+      req.nysrpAuditWebhookUrl = process.env.NYSRP_AUDIT_WEBHOOK_URL;
+      return await discordAuditHandler(req, createNodeApiResponse(res));
+    } catch (error) {
+      console.error("[Discord Audit Server Error]", error?.name || "Error");
+      return sendJson(res, 500, { error: "Internal server error processing audit log" });
     }
   }
 
